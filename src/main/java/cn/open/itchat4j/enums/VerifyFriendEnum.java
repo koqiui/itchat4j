@@ -10,7 +10,7 @@ package cn.open.itchat4j.enums;
  */
 public enum VerifyFriendEnum {
 
-	ADD(2, "添加"),
+	ADD(2, "添加"), //
 	ACCEPT(3, "接受");
 
 	private int code;
@@ -23,6 +23,10 @@ public enum VerifyFriendEnum {
 
 	public int getCode() {
 		return code;
+	}
+
+	public String getDesc() {
+		return desc;
 	}
 
 }

@@ -32,7 +32,7 @@ import cn.open.itchat4j.enums.ResultEnum;
 import cn.open.itchat4j.enums.RetCodeEnum;
 import cn.open.itchat4j.enums.StorageLoginInfoEnum;
 import cn.open.itchat4j.enums.URLEnum;
-import cn.open.itchat4j.enums.params.BaseParaEnum;
+import cn.open.itchat4j.enums.params.BaseParamEnum;
 import cn.open.itchat4j.enums.params.LoginParaEnum;
 import cn.open.itchat4j.enums.params.StatusNotifyParaEnum;
 import cn.open.itchat4j.enums.params.UUIDParaEnum;
@@ -156,7 +156,7 @@ public class LoginServiceImpl implements ILoginService {
 	@Override
 	public boolean webWxInit() {
 		core.setAlive(true);
-		core.setLastNormalRetcodeTime(System.currentTimeMillis());
+		core.setLastNormalRetCodeTime(System.currentTimeMillis());
 		// 组装请求URL和参数
 		String url = String.format(URLEnum.INIT_URL.getUrl(), core.getLoginInfo().get(StorageLoginInfoEnum.url.getKey()), String.valueOf(System.currentTimeMillis() / 3158L),
 				core.getLoginInfo().get(StorageLoginInfoEnum.pass_ticket.getKey()));
@@ -262,7 +262,7 @@ public class LoginServiceImpl implements ILoginService {
 							LOG.info(RetCodeEnum.MOBILE_LOGIN_OUT.getType());
 							break;
 						} else if (retcode.equals(RetCodeEnum.NORMAL.getCode())) {
-							core.setLastNormalRetcodeTime(System.currentTimeMillis()); // 最后收到正常报文时间
+							core.setLastNormalRetCodeTime(System.currentTimeMillis()); // 最后收到正常报文时间
 							JSONObject msgObj = webWxSync();
 							if (selector.equals("2")) {
 								if (msgObj != null) {
@@ -614,8 +614,8 @@ public class LoginServiceImpl implements ILoginService {
 		// 组装请求URL和参数
 		String url = core.getLoginInfo().get(StorageLoginInfoEnum.syncUrl.getKey()) + URLEnum.SYNC_CHECK_URL.getUrl();
 		List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
-		for (BaseParaEnum baseRequest : BaseParaEnum.values()) {
-			params.add(new BasicNameValuePair(baseRequest.para().toLowerCase(), core.getLoginInfo().get(baseRequest.value()).toString()));
+		for (BaseParamEnum baseRequest : BaseParamEnum.values()) {
+			params.add(new BasicNameValuePair(baseRequest.param().toLowerCase(), core.getLoginInfo().get(baseRequest.value()).toString()));
 		}
 		params.add(new BasicNameValuePair("r", String.valueOf(new Date().getTime())));
 		params.add(new BasicNameValuePair("synckey", (String) core.getLoginInfo().get("synckey")));

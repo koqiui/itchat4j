@@ -9,7 +9,7 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 
 import cn.open.itchat4j.beans.BaseMsg;
-import cn.open.itchat4j.enums.params.BaseParaEnum;
+import cn.open.itchat4j.enums.params.BaseParamEnum;
 import cn.open.itchat4j.utils.MyHttpClient;
 
 /**
@@ -67,7 +67,7 @@ public class Core {
 	String hotReloadDir = "itchat.pkl";
 	int receivingRetryCount = 5;
 
-	private long lastNormalRetcodeTime; // 最后一次收到正常retcode的时间，秒为单位
+	private long lastNormalRetCodeTime; // 最后一次收到正常retcode的时间，秒为单位
 
 	/**
 	 * 请求参数
@@ -81,8 +81,8 @@ public class Core {
 
 			{
 				Map<String, String> map = new HashMap<String, String>();
-				for (BaseParaEnum baseRequest : BaseParaEnum.values()) {
-					map.put(baseRequest.para(), getLoginInfo().get(baseRequest.value()).toString());
+				for (BaseParamEnum baseRequest : BaseParamEnum.values()) {
+					map.put(baseRequest.param(), getLoginInfo().get(baseRequest.value()).toString());
 				}
 				put("BaseRequest", map);
 			}
@@ -241,12 +241,12 @@ public class Core {
 		this.userInfoMap = userInfoMap;
 	}
 
-	public synchronized long getLastNormalRetcodeTime() {
-		return lastNormalRetcodeTime;
+	public synchronized long getLastNormalRetCodeTime() {
+		return lastNormalRetCodeTime;
 	}
 
-	public synchronized void setLastNormalRetcodeTime(long lastNormalRetcodeTime) {
-		this.lastNormalRetcodeTime = lastNormalRetcodeTime;
+	public synchronized void setLastNormalRetCodeTime(long lastNormalRetCodeTime) {
+		this.lastNormalRetCodeTime = lastNormalRetCodeTime;
 	}
 
 	public List<String> getGroupNickNameList() {
