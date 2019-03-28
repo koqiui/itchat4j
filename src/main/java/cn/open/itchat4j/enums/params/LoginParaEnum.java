@@ -1,21 +1,22 @@
-package cn.open.itchat4j.utils.enums.parameters;
+package cn.open.itchat4j.enums.params;
 
 /**
- * UUID
+ * 登陆
  * <p>
  * Created by xiaoxiaomo on 2017/5/7.
  */
-public enum UUIDParaEnum {
+public enum LoginParaEnum {
 
-    APP_ID("appid", "wx782c26e4c19acffb"),
-    FUN("fun", "new"),
-    LANG("lang", "zh_CN"),
-    _("_", "时间戳");
+    LOGIN_ICON("loginicon", "true"),
+    UUID("uuid", ""),
+    TIP("tip", "0"),
+    R("r", ""),
+    _("_", "");
 
     private String para;
     private String value;
 
-    UUIDParaEnum(String para, String value) {
+    LoginParaEnum(String para, String value) {
         this.para = para;
         this.value = value;
     }

@@ -17,8 +17,8 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 
 import cn.open.itchat4j.core.Core;
-import cn.open.itchat4j.utils.enums.StorageLoginInfoEnum;
-import cn.open.itchat4j.utils.enums.URLEnum;
+import cn.open.itchat4j.enums.StorageLoginInfoEnum;
+import cn.open.itchat4j.enums.URLEnum;
 
 /**
  * 微信小工具，如获好友列表等

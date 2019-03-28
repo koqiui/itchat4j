@@ -27,11 +27,11 @@ import com.alibaba.fastjson.JSONObject;
 import cn.open.itchat4j.beans.BaseMsg;
 import cn.open.itchat4j.beans.RecommendInfo;
 import cn.open.itchat4j.core.Core;
+import cn.open.itchat4j.enums.StorageLoginInfoEnum;
+import cn.open.itchat4j.enums.URLEnum;
+import cn.open.itchat4j.enums.VerifyFriendEnum;
 import cn.open.itchat4j.utils.Config;
 import cn.open.itchat4j.utils.MyHttpClient;
-import cn.open.itchat4j.utils.enums.StorageLoginInfoEnum;
-import cn.open.itchat4j.utils.enums.URLEnum;
-import cn.open.itchat4j.utils.enums.VerifyFriendEnum;
 
 /**
  * 消息处理类

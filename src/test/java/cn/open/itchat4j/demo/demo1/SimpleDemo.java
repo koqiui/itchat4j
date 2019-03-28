@@ -11,9 +11,9 @@ import cn.open.itchat4j.api.WechatTools;
 import cn.open.itchat4j.beans.BaseMsg;
 import cn.open.itchat4j.beans.RecommendInfo;
 import cn.open.itchat4j.core.Core;
+import cn.open.itchat4j.enums.MsgTypeCodeEnum;
 import cn.open.itchat4j.face.IMsgHandlerFace;
-import cn.open.itchat4j.utils.enums.MsgTypeEnum;
-import cn.open.itchat4j.utils.tools.DownloadTools;
+import cn.open.itchat4j.tools.DownloadTools;
 
 /**
  * 简单示例程序，收到文本信息自动回复原信息，收到图片、语音、小视频后根据路径自动保存
@@ -55,7 +55,7 @@ public class SimpleDemo implements IMsgHandlerFace {
 	public String picMsgHandle(BaseMsg msg) {
 		String fileName = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date());// 这里使用收到图片的时间作为文件名
 		String picPath = "D://itchat4j/pic" + File.separator + fileName + ".jpg"; // 调用此方法来保存图片
-		DownloadTools.getDownloadFn(msg, MsgTypeEnum.PIC.getCode(), picPath); // 保存图片的路径
+		DownloadTools.getDownloadFn(msg, MsgTypeCodeEnum.PIC.getCode(), picPath); // 保存图片的路径
 		return "图片保存成功";
 	}
 
@@ -63,7 +63,7 @@ public class SimpleDemo implements IMsgHandlerFace {
 	public String voiceMsgHandle(BaseMsg msg) {
 		String fileName = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date());
 		String voicePath = "D://itchat4j/voice" + File.separator + fileName + ".mp3";
-		DownloadTools.getDownloadFn(msg, MsgTypeEnum.VOICE.getCode(), voicePath);
+		DownloadTools.getDownloadFn(msg, MsgTypeCodeEnum.VOICE.getCode(), voicePath);
 		return "声音保存成功";
 	}
 
@@ -71,7 +71,7 @@ public class SimpleDemo implements IMsgHandlerFace {
 	public String viedoMsgHandle(BaseMsg msg) {
 		String fileName = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date());
 		String viedoPath = "D://itchat4j/viedo" + File.separator + fileName + ".mp4";
-		DownloadTools.getDownloadFn(msg, MsgTypeEnum.VIEDO.getCode(), viedoPath);
+		DownloadTools.getDownloadFn(msg, MsgTypeCodeEnum.VIEDO.getCode(), viedoPath);
 		return "视频保存成功";
 	}
 
@@ -101,7 +101,7 @@ public class SimpleDemo implements IMsgHandlerFace {
 	public String mediaMsgHandle(BaseMsg msg) {
 		String fileName = msg.getFileName();
 		String filePath = "D://itchat4j/file" + File.separator + fileName; // 这里是需要保存收到的文件路径，文件可以是任何格式如PDF，WORD，EXCEL等。
-		DownloadTools.getDownloadFn(msg, MsgTypeEnum.MEDIA.getCode(), filePath);
+		DownloadTools.getDownloadFn(msg, MsgTypeCodeEnum.MEDIA.getCode(), filePath);
 		return "文件" + fileName + "保存成功";
 	}
 

@@ -1,4 +1,4 @@
-package cn.open.itchat4j.utils.tools;
+package cn.open.itchat4j.tools;
 
 import java.io.FileOutputStream;
 import java.io.OutputStream;
@@ -14,9 +14,9 @@ import org.apache.http.util.EntityUtils;
 
 import cn.open.itchat4j.beans.BaseMsg;
 import cn.open.itchat4j.core.Core;
+import cn.open.itchat4j.enums.MsgTypeCodeEnum;
+import cn.open.itchat4j.enums.URLEnum;
 import cn.open.itchat4j.utils.MyHttpClient;
-import cn.open.itchat4j.utils.enums.MsgTypeEnum;
-import cn.open.itchat4j.utils.enums.URLEnum;
 
 /**
  * 下载工具类
@@ -45,14 +45,14 @@ public class DownloadTools {
 		Map<String, String> headerMap = new HashMap<String, String>();
 		List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
 		String url = "";
-		if (type.equals(MsgTypeEnum.PIC.getCode())) {
+		if (type.equals(MsgTypeCodeEnum.PIC.getCode())) {
 			url = String.format(URLEnum.WEB_WX_GET_MSG_IMG.getUrl(), (String) core.getLoginInfo().get("url"));
-		} else if (type.equals(MsgTypeEnum.VOICE.getCode())) {
+		} else if (type.equals(MsgTypeCodeEnum.VOICE.getCode())) {
 			url = String.format(URLEnum.WEB_WX_GET_VOICE.getUrl(), (String) core.getLoginInfo().get("url"));
-		} else if (type.equals(MsgTypeEnum.VIEDO.getCode())) {
+		} else if (type.equals(MsgTypeCodeEnum.VIEDO.getCode())) {
 			headerMap.put("Range", "bytes=0-");
 			url = String.format(URLEnum.WEB_WX_GET_VIEDO.getUrl(), (String) core.getLoginInfo().get("url"));
-		} else if (type.equals(MsgTypeEnum.MEDIA.getCode())) {
+		} else if (type.equals(MsgTypeCodeEnum.MEDIA.getCode())) {
 			headerMap.put("Range", "bytes=0-");
 			url = String.format(URLEnum.WEB_WX_GET_MEDIA.getUrl(), (String) core.getLoginInfo().get("fileUrl"));
 			params.add(new BasicNameValuePair("sender", msg.getFromUserName()));

@@ -16,9 +16,9 @@ import cn.open.itchat4j.Wechat;
 import cn.open.itchat4j.api.WechatTools;
 import cn.open.itchat4j.beans.BaseMsg;
 import cn.open.itchat4j.core.Core;
+import cn.open.itchat4j.enums.StorageLoginInfoEnum;
 import cn.open.itchat4j.face.IMsgHandlerFace;
 import cn.open.itchat4j.utils.MyHttpClient;
-import cn.open.itchat4j.utils.enums.StorageLoginInfoEnum;
 
 /**
  * 此示例演示如何获取所有好友的头像

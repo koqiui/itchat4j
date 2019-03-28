@@ -28,19 +28,19 @@ import com.alibaba.fastjson.JSONObject;
 import cn.open.itchat4j.beans.BaseMsg;
 import cn.open.itchat4j.core.Core;
 import cn.open.itchat4j.core.MsgCenter;
+import cn.open.itchat4j.enums.ResultEnum;
+import cn.open.itchat4j.enums.RetCodeEnum;
+import cn.open.itchat4j.enums.StorageLoginInfoEnum;
+import cn.open.itchat4j.enums.URLEnum;
+import cn.open.itchat4j.enums.params.BaseParaEnum;
+import cn.open.itchat4j.enums.params.LoginParaEnum;
+import cn.open.itchat4j.enums.params.StatusNotifyParaEnum;
+import cn.open.itchat4j.enums.params.UUIDParaEnum;
 import cn.open.itchat4j.service.ILoginService;
+import cn.open.itchat4j.tools.CommonTools;
 import cn.open.itchat4j.utils.Config;
 import cn.open.itchat4j.utils.MyHttpClient;
 import cn.open.itchat4j.utils.SleepUtils;
-import cn.open.itchat4j.utils.enums.ResultEnum;
-import cn.open.itchat4j.utils.enums.RetCodeEnum;
-import cn.open.itchat4j.utils.enums.StorageLoginInfoEnum;
-import cn.open.itchat4j.utils.enums.URLEnum;
-import cn.open.itchat4j.utils.enums.parameters.BaseParaEnum;
-import cn.open.itchat4j.utils.enums.parameters.LoginParaEnum;
-import cn.open.itchat4j.utils.enums.parameters.StatusNotifyParaEnum;
-import cn.open.itchat4j.utils.enums.parameters.UUIDParaEnum;
-import cn.open.itchat4j.utils.tools.CommonTools;
 
 /**
  * 登陆服务实现类

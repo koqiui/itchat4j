@@ -1,4 +1,4 @@
-package cn.open.itchat4j.utils.enums;
+package cn.open.itchat4j.enums;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;

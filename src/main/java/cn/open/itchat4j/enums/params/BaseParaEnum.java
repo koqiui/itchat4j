@@ -1,4 +1,4 @@
-package cn.open.itchat4j.utils.enums.parameters;
+package cn.open.itchat4j.enums.params;
 
 /**
  *

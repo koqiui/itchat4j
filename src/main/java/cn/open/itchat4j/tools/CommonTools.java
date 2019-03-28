@@ -1,4 +1,4 @@
-package cn.open.itchat4j.utils.tools;
+package cn.open.itchat4j.tools;
 
 import java.io.StringReader;
 import java.util.ArrayList;
@@ -20,8 +20,8 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.vdurmont.emoji.EmojiParser;
 
+import cn.open.itchat4j.enums.OsNameEnum;
 import cn.open.itchat4j.utils.Config;
-import cn.open.itchat4j.utils.enums.OsNameEnum;
 
 /**
  * 常用工具类

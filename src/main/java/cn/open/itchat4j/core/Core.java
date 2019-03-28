@@ -9,8 +9,8 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 
 import cn.open.itchat4j.beans.BaseMsg;
+import cn.open.itchat4j.enums.params.BaseParaEnum;
 import cn.open.itchat4j.utils.MyHttpClient;
-import cn.open.itchat4j.utils.enums.parameters.BaseParaEnum;
 
 /**
  * 核心存储类，全局只保存一份，单例模式

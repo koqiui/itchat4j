@@ -15,10 +15,10 @@ import com.alibaba.fastjson.JSONObject;
 import cn.open.itchat4j.Wechat;
 import cn.open.itchat4j.beans.BaseMsg;
 import cn.open.itchat4j.core.Core;
+import cn.open.itchat4j.enums.MsgTypeCodeEnum;
 import cn.open.itchat4j.face.IMsgHandlerFace;
+import cn.open.itchat4j.tools.DownloadTools;
 import cn.open.itchat4j.utils.MyHttpClient;
-import cn.open.itchat4j.utils.enums.MsgTypeEnum;
-import cn.open.itchat4j.utils.tools.DownloadTools;
 
 /**
  * 图灵机器人示例
@@ -67,7 +67,7 @@ public class TulingRobot implements IMsgHandlerFace {
 	public String voiceMsgHandle(BaseMsg msg) {
 		String fileName = String.valueOf(new Date().getTime());
 		String voicePath = "D://itchat4j/voice" + File.separator + fileName + ".mp3";
-		DownloadTools.getDownloadFn(msg, MsgTypeEnum.VOICE.getCode(), voicePath);
+		DownloadTools.getDownloadFn(msg, MsgTypeCodeEnum.VOICE.getCode(), voicePath);
 		return "收到语音";
 	}
 
@@ -75,7 +75,7 @@ public class TulingRobot implements IMsgHandlerFace {
 	public String viedoMsgHandle(BaseMsg msg) {
 		String fileName = String.valueOf(new Date().getTime());
 		String viedoPath = "D://itchat4j/viedo" + File.separator + fileName + ".mp4";
-		DownloadTools.getDownloadFn(msg, MsgTypeEnum.VIEDO.getCode(), viedoPath);
+		DownloadTools.getDownloadFn(msg, MsgTypeCodeEnum.VIEDO.getCode(), viedoPath);
 		return "收到视频";
 	}
 

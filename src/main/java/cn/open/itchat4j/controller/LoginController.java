@@ -8,8 +8,8 @@ import cn.open.itchat4j.core.Core;
 import cn.open.itchat4j.service.ILoginService;
 import cn.open.itchat4j.service.impl.LoginServiceImpl;
 import cn.open.itchat4j.thread.CheckLoginStatusThread;
+import cn.open.itchat4j.tools.CommonTools;
 import cn.open.itchat4j.utils.SleepUtils;
-import cn.open.itchat4j.utils.tools.CommonTools;
 
 /**
  * 登陆控制器
