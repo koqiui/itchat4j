@@ -8,7 +8,7 @@ package cn.open.itchat4j.utils;
  * @version 1.0
  *
  */
-public class ConstantConfigEnum {
+public class ConfigConst {
 	public static final int APPMSGTYPE_TEXT = 1;
 	public static final int APPMSGTYPE_IMG = 2;
 	public static final int APPMSGTYPE_AUDIO = 3;

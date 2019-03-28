@@ -33,9 +33,9 @@ import cn.open.itchat4j.enums.RetCodeEnum;
 import cn.open.itchat4j.enums.StorageLoginInfoEnum;
 import cn.open.itchat4j.enums.URLEnum;
 import cn.open.itchat4j.enums.params.BaseParamEnum;
-import cn.open.itchat4j.enums.params.LoginParaEnum;
-import cn.open.itchat4j.enums.params.StatusNotifyParaEnum;
-import cn.open.itchat4j.enums.params.UUIDParaEnum;
+import cn.open.itchat4j.enums.params.LoginParamEnum;
+import cn.open.itchat4j.enums.params.StatusNotifyParamEnum;
+import cn.open.itchat4j.enums.params.UUIDParamEnum;
 import cn.open.itchat4j.service.ILoginService;
 import cn.open.itchat4j.tools.CommonTools;
 import cn.open.itchat4j.utils.Config;
@@ -64,20 +64,19 @@ public class LoginServiceImpl implements ILoginService {
 
 	@Override
 	public boolean login() {
-
 		boolean isLogin = false;
 		// 组装参数和URL
 		List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
-		params.add(new BasicNameValuePair(LoginParaEnum.LOGIN_ICON.para(), LoginParaEnum.LOGIN_ICON.value()));
-		params.add(new BasicNameValuePair(LoginParaEnum.UUID.para(), core.getUuid()));
-		params.add(new BasicNameValuePair(LoginParaEnum.TIP.para(), LoginParaEnum.TIP.value()));
+		params.add(new BasicNameValuePair(LoginParamEnum.LOGIN_ICON.param(), LoginParamEnum.LOGIN_ICON.value()));
+		params.add(new BasicNameValuePair(LoginParamEnum.UUID.param(), core.getUuid()));
+		params.add(new BasicNameValuePair(LoginParamEnum.TIP.param(), LoginParamEnum.TIP.value()));
 
 		// long time = 4000;
 		while (!isLogin) {
 			// SleepUtils.sleep(time += 1000);
 			long millis = System.currentTimeMillis();
-			params.add(new BasicNameValuePair(LoginParaEnum.R.para(), String.valueOf(millis / 1579L)));
-			params.add(new BasicNameValuePair(LoginParaEnum._.para(), String.valueOf(millis)));
+			params.add(new BasicNameValuePair(LoginParamEnum.R.param(), String.valueOf(millis / 1579L)));
+			params.add(new BasicNameValuePair(LoginParamEnum._.param(), String.valueOf(millis)));
 			HttpEntity entity = httpClient.doGet(URLEnum.LOGIN_URL.getUrl(), params, true, null);
 
 			try {
@@ -105,10 +104,10 @@ public class LoginServiceImpl implements ILoginService {
 	public String getUuid() {
 		// 组装参数和URL
 		List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
-		params.add(new BasicNameValuePair(UUIDParaEnum.APP_ID.para(), UUIDParaEnum.APP_ID.value()));
-		params.add(new BasicNameValuePair(UUIDParaEnum.FUN.para(), UUIDParaEnum.FUN.value()));
-		params.add(new BasicNameValuePair(UUIDParaEnum.LANG.para(), UUIDParaEnum.LANG.value()));
-		params.add(new BasicNameValuePair(UUIDParaEnum._.para(), String.valueOf(System.currentTimeMillis())));
+		params.add(new BasicNameValuePair(UUIDParamEnum.APP_ID.param(), UUIDParamEnum.APP_ID.value()));
+		params.add(new BasicNameValuePair(UUIDParamEnum.FUN.param(), UUIDParamEnum.FUN.value()));
+		params.add(new BasicNameValuePair(UUIDParamEnum.LANG.param(), UUIDParamEnum.LANG.value()));
+		params.add(new BasicNameValuePair(UUIDParamEnum._.param(), String.valueOf(System.currentTimeMillis())));
 
 		HttpEntity entity = httpClient.doGet(URLEnum.UUID_URL.getUrl(), params, true, null);
 
@@ -220,10 +219,10 @@ public class LoginServiceImpl implements ILoginService {
 		String url = String.format(URLEnum.STATUS_NOTIFY_URL.getUrl(), core.getLoginInfo().get(StorageLoginInfoEnum.pass_ticket.getKey()));
 
 		Map<String, Object> paramMap = core.getParamMap();
-		paramMap.put(StatusNotifyParaEnum.CODE.para(), StatusNotifyParaEnum.CODE.value());
-		paramMap.put(StatusNotifyParaEnum.FROM_USERNAME.para(), core.getUserName());
-		paramMap.put(StatusNotifyParaEnum.TO_USERNAME.para(), core.getUserName());
-		paramMap.put(StatusNotifyParaEnum.CLIENT_MSG_ID.para(), System.currentTimeMillis());
+		paramMap.put(StatusNotifyParamEnum.CODE.param(), StatusNotifyParamEnum.CODE.value());
+		paramMap.put(StatusNotifyParamEnum.FROM_USERNAME.param(), core.getUserName());
+		paramMap.put(StatusNotifyParamEnum.TO_USERNAME.param(), core.getUserName());
+		paramMap.put(StatusNotifyParamEnum.CLIENT_MSG_ID.param(), System.currentTimeMillis());
 		String paramStr = JSON.toJSONString(paramMap);
 
 		try {
