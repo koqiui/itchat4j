@@ -34,26 +34,20 @@ import cn.open.itchat4j.utils.Config;
 public class CommonTools {
 
 	public static boolean printQr(String qrPath) {
-
+		Runtime runtime = Runtime.getRuntime();
 		switch (Config.getOsNameEnum()) {
 			case WINDOWS:
-				if (Config.getOsNameEnum().equals(OsNameEnum.WINDOWS)) {
-					Runtime runtime = Runtime.getRuntime();
-					try {
-						runtime.exec("cmd /c start " + qrPath);
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
+				try {
+					runtime.exec("cmd /c start " + qrPath);
+				} catch (Exception e) {
+					e.printStackTrace();
 				}
 				break;
 			case MAC:
-				if (Config.getOsNameEnum().equals(OsNameEnum.MAC)) {
-					Runtime runtime = Runtime.getRuntime();
-					try {
-						runtime.exec("open " + qrPath);
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
+				try {
+					runtime.exec("open " + qrPath);
+				} catch (Exception e) {
+					e.printStackTrace();
 				}
 				break;
 
@@ -64,18 +58,22 @@ public class CommonTools {
 	}
 
 	public static boolean clearScreen() {
+		Runtime runtime = Runtime.getRuntime();
 		switch (Config.getOsNameEnum()) {
 			case WINDOWS:
-				if (Config.getOsNameEnum().equals(OsNameEnum.WINDOWS)) {
-					Runtime runtime = Runtime.getRuntime();
-					try {
-						runtime.exec("cmd /c " + "cls");
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
+				try {
+					runtime.exec("cmd /c " + "cls");
+				} catch (Exception e) {
+					e.printStackTrace();
 				}
 				break;
-
+			case MAC:
+				try {
+					runtime.exec("clear ");
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				break;
 			default:
 				break;
 		}
@@ -152,17 +150,17 @@ public class CommonTools {
 
 		friendInfoTemplate.put("MemberList", new ArrayList<Object>());
 
-		JSONObject r = new JSONObject();
+		JSONObject ret = new JSONObject();
 		Set<String> keySet = friendInfoTemplate.keySet();
 		for (String key : keySet) {
 			if (userObj.containsKey(key)) {
-				r.put(key, userObj.get(key));
+				ret.put(key, userObj.get(key));
 			} else {
-				r.put(key, friendInfoTemplate.get(key));
+				ret.put(key, friendInfoTemplate.get(key));
 			}
 		}
 
-		return r;
+		return ret;
 	}
 
 	public static String getSynckey(JSONObject obj) {
@@ -177,14 +175,14 @@ public class CommonTools {
 	}
 
 	public static JSONObject searchDictList(List<JSONObject> list, String key, String value) {
-		JSONObject r = null;
+		JSONObject ret = null;
 		for (JSONObject i : list) {
 			if (i.getString(key).equals(value)) {
-				r = i;
+				ret = i;
 				break;
 			}
 		}
-		return r;
+		return ret;
 	}
 
 	/**

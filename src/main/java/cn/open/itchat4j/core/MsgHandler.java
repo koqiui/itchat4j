@@ -1,4 +1,4 @@
-package cn.open.itchat4j.face;
+package cn.open.itchat4j.core;
 
 import cn.open.itchat4j.beans.BaseMsg;
 
@@ -10,7 +10,7 @@ import cn.open.itchat4j.beans.BaseMsg;
  * @version 1.0
  *
  */
-public interface IMsgHandlerFace {
+public interface MsgHandler {
 	/**
 	 * 处理文本消息
 	 * 

@@ -1,12 +1,18 @@
 package cn.open.itchat4j.core;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+
+import org.apache.http.client.CookieStore;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.annotation.JSONField;
 
 import cn.open.itchat4j.beans.BaseMsg;
 import cn.open.itchat4j.enums.params.BaseParamEnum;
@@ -20,33 +26,29 @@ import cn.open.itchat4j.utils.MyHttpClient;
  * @version 1.0
  *
  */
-public class Core {
-
-	private static Core instance;
+public class Core implements Serializable {
+	private static final long serialVersionUID = 1L;
+	//
+	private static Core instance = new Core();
 
 	private Core() {
-
+		//
 	}
 
 	public static Core getInstance() {
-		if (instance == null) {
-			synchronized (Core.class) {
-				instance = new Core();
-			}
-		}
 		return instance;
 	}
+	//
 
 	boolean alive = false;
-	private int memberCount = 0;
-
 	private String indexUrl;
 
 	private String userName;
 	private String nickName;
-	private List<BaseMsg> msgList = new ArrayList<BaseMsg>();
 
 	private JSONObject userSelf; // 登陆账号自身信息
+	private int memberCount = 0;
+	//"ContactFlag":???
 	private List<JSONObject> memberList = new ArrayList<JSONObject>(); // 好友+群聊+公众号+特殊账号
 	private List<JSONObject> contactList = new ArrayList<JSONObject>();// 好友
 	private List<JSONObject> groupList = new ArrayList<JSONObject>();; // 群
@@ -59,8 +61,7 @@ public class Core {
 	private Map<String, JSONObject> userInfoMap = new HashMap<String, JSONObject>();
 
 	Map<String, Object> loginInfo = new HashMap<String, Object>();
-	// CloseableHttpClient httpClient = HttpClients.createDefault();
-	MyHttpClient myHttpClient = MyHttpClient.getInstance();
+
 	String uuid = null;
 
 	boolean useHotReload = false;
@@ -68,17 +69,22 @@ public class Core {
 	int receivingRetryCount = 5;
 
 	private long lastNormalRetCodeTime; // 最后一次收到正常retcode的时间，秒为单位
+	//
+	private CookieStore cookieStore;
+
+	// TODO 是否能正常反序列化 ??
+	@JSONField(serialize = false)
+	private transient MyHttpClient myHttpClient = MyHttpClient.getInstance(this.cookieStore);
+	@JSONField(serialize = false)
+	private transient Queue<BaseMsg> msgList = new ConcurrentLinkedQueue<BaseMsg>();
 
 	/**
 	 * 请求参数
 	 */
 	public Map<String, Object> getParamMap() {
 		return new HashMap<String, Object>(1) {
-			/**
-			 * 
-			 */
 			private static final long serialVersionUID = 1L;
-
+			//
 			{
 				Map<String, String> map = new HashMap<String, String>();
 				for (BaseParamEnum baseRequest : BaseParamEnum.values()) {
@@ -95,6 +101,14 @@ public class Core {
 
 	public void setAlive(boolean alive) {
 		this.alive = alive;
+	}
+
+	public String getIndexUrl() {
+		return indexUrl;
+	}
+
+	public void setIndexUrl(String indexUrl) {
+		this.indexUrl = indexUrl;
 	}
 
 	public List<JSONObject> getMemberList() {
@@ -157,11 +171,11 @@ public class Core {
 		return myHttpClient;
 	}
 
-	public List<BaseMsg> getMsgList() {
+	public Queue<BaseMsg> getMsgList() {
 		return msgList;
 	}
 
-	public void setMsgList(List<BaseMsg> msgList) {
+	public void setMsgList(Queue<BaseMsg> msgList) {
 		this.msgList = msgList;
 	}
 
@@ -263,14 +277,6 @@ public class Core {
 
 	public void setGroupMemeberMap(Map<String, JSONArray> groupMemeberMap) {
 		this.groupMemeberMap = groupMemeberMap;
-	}
-
-	public String getIndexUrl() {
-		return indexUrl;
-	}
-
-	public void setIndexUrl(String indexUrl) {
-		this.indexUrl = indexUrl;
 	}
 
 }

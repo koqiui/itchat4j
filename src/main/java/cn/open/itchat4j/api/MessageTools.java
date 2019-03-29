@@ -153,7 +153,7 @@ public class MessageTools {
 		long fileSize = f.length();
 		String passTicket = (String) core.getLoginInfo().get("pass_ticket");
 		String clientMediaId = String.valueOf(new Date().getTime()) + String.valueOf(new Random().nextLong()).substring(0, 4);
-		String webwxDataTicket = MyHttpClient.getCookie("webwx_data_ticket");
+		String webwxDataTicket = myHttpClient.getCookie("webwx_data_ticket");
 		if (webwxDataTicket == null) {
 			LOG.error("get cookie webwx_data_ticket error");
 			return null;

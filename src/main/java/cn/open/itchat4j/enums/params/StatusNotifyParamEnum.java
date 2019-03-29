@@ -7,7 +7,10 @@ package cn.open.itchat4j.enums.params;
  */
 public enum StatusNotifyParamEnum {
 
-	CODE("Code", "3"), FROM_USERNAME("FromUserName", ""), TO_USERNAME("ToUserName", ""), CLIENT_MSG_ID("ClientMsgId", ""); // 时间戳
+	CODE("Code", "3"), //
+	FROM_USERNAME("FromUserName", ""), //
+	TO_USERNAME("ToUserName", ""), //
+	CLIENT_MSG_ID("ClientMsgId", ""); // 时间戳
 
 	private String param;
 	private String value;

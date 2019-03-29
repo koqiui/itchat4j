@@ -1,4 +1,4 @@
-package cn.open.itchat4j.service.impl;
+package cn.open.itchat4j;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -36,7 +36,6 @@ import cn.open.itchat4j.enums.params.BaseParamEnum;
 import cn.open.itchat4j.enums.params.LoginParamEnum;
 import cn.open.itchat4j.enums.params.StatusNotifyParamEnum;
 import cn.open.itchat4j.enums.params.UUIDParamEnum;
-import cn.open.itchat4j.service.ILoginService;
 import cn.open.itchat4j.tools.CommonTools;
 import cn.open.itchat4j.utils.Config;
 import cn.open.itchat4j.utils.MyHttpClient;
@@ -50,57 +49,32 @@ import cn.open.itchat4j.utils.SleepUtils;
  * @version 1.0
  *
  */
-public class LoginServiceImpl implements ILoginService {
-	private static Logger LOG = LoggerFactory.getLogger(LoginServiceImpl.class);
+public class WechatHelper {
+	private static Logger LOG = LoggerFactory.getLogger(WechatHelper.class);
 
 	private Core core = Core.getInstance();
-	private MyHttpClient httpClient = core.getMyHttpClient();
-
 	private MyHttpClient myHttpClient = core.getMyHttpClient();
 
-	public LoginServiceImpl() {
-
+	private WechatHelper() {
+		//
 	}
 
-	@Override
-	public boolean login() {
-		boolean isLogin = false;
-		// 组装参数和URL
-		List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
-		params.add(new BasicNameValuePair(LoginParamEnum.LOGIN_ICON.param(), LoginParamEnum.LOGIN_ICON.value()));
-		params.add(new BasicNameValuePair(LoginParamEnum.UUID.param(), core.getUuid()));
-		params.add(new BasicNameValuePair(LoginParamEnum.TIP.param(), LoginParamEnum.TIP.value()));
+	private static WechatHelper instance = new WechatHelper();
 
-		// long time = 4000;
-		while (!isLogin) {
-			// SleepUtils.sleep(time += 1000);
-			long millis = System.currentTimeMillis();
-			params.add(new BasicNameValuePair(LoginParamEnum.R.param(), String.valueOf(millis / 1579L)));
-			params.add(new BasicNameValuePair(LoginParamEnum._.param(), String.valueOf(millis)));
-			HttpEntity entity = httpClient.doGet(URLEnum.LOGIN_URL.getUrl(), params, true, null);
-
-			try {
-				String result = EntityUtils.toString(entity);
-				String status = checklogin(result);
-
-				if (ResultEnum.SUCCESS.getCode().equals(status)) {
-					processLoginInfo(result); // 处理结果
-					isLogin = true;
-					core.setAlive(isLogin);
-					break;
-				}
-				if (ResultEnum.WAIT_CONFIRM.getCode().equals(status)) {
-					LOG.info("请点击微信确认按钮，进行登陆");
-				}
-
-			} catch (Exception e) {
-				LOG.error("微信登陆异常！", e);
-			}
-		}
-		return isLogin;
+	public static WechatHelper getInstance() {
+		return instance;
 	}
 
-	@Override
+	/**
+	 * 是否仍然在线
+	 */
+	public boolean isAlive() {
+		return core.isAlive();
+	}
+
+	/**
+	 * 获取UUID
+	 */
 	public String getUuid() {
 		// 组装参数和URL
 		List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
@@ -109,7 +83,7 @@ public class LoginServiceImpl implements ILoginService {
 		params.add(new BasicNameValuePair(UUIDParamEnum.LANG.param(), UUIDParamEnum.LANG.value()));
 		params.add(new BasicNameValuePair(UUIDParamEnum._.param(), String.valueOf(System.currentTimeMillis())));
 
-		HttpEntity entity = httpClient.doGet(URLEnum.UUID_URL.getUrl(), params, true, null);
+		HttpEntity entity = myHttpClient.doGet(URLEnum.UUID_URL.getUrl(), params, true, null);
 
 		try {
 			String result = EntityUtils.toString(entity);
@@ -127,9 +101,56 @@ public class LoginServiceImpl implements ILoginService {
 		return core.getUuid();
 	}
 
-	@Override
-	public boolean getQR(String qrPath) {
-		qrPath = qrPath + File.separator + "QR.jpg";
+	/**
+	 * 登陆
+	 */
+	public boolean login() {
+		boolean isLogin = false;
+		// 组装参数和URL
+		List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
+		params.add(new BasicNameValuePair(LoginParamEnum.LOGIN_ICON.param(), LoginParamEnum.LOGIN_ICON.value()));
+		params.add(new BasicNameValuePair(LoginParamEnum.UUID.param(), core.getUuid()));
+		params.add(new BasicNameValuePair(LoginParamEnum.TIP.param(), LoginParamEnum.TIP.value()));
+
+		// long time = 4000;
+		while (!isLogin) {
+			// SleepUtils.sleep(time += 1000);
+			long millis = System.currentTimeMillis();
+			params.add(new BasicNameValuePair(LoginParamEnum.R.param(), String.valueOf(millis / 1579L)));
+			params.add(new BasicNameValuePair(LoginParamEnum._.param(), String.valueOf(millis)));
+			HttpEntity entity = myHttpClient.doGet(URLEnum.LOGIN_URL.getUrl(), params, true, null);
+
+			try {
+				String result = EntityUtils.toString(entity);
+				String status = checklogin(result);
+
+				if (ResultEnum.SUCCESS.getCode().equals(status)) {
+					String errMsg = processLoginInfo(result); // 处理结果
+					isLogin = errMsg == null;
+					if (isLogin) {
+						core.setAlive(isLogin);
+						break;
+					}
+				} else if (ResultEnum.WAIT_CONFIRM.getCode().equals(status)) {
+					LOG.info("请点击微信确认按钮，进行登陆");
+				}
+
+			} catch (Exception e) {
+				LOG.error("微信登陆异常！", e);
+			}
+		}
+		return isLogin;
+	}
+
+	/**
+	 * 获取登陆二维码（用于扫码登陆）
+	 */
+	public boolean getQR(String qrPathDir) {
+		File qrDir = new File(qrPathDir);
+		if (!qrDir.exists()) {
+			qrDir.mkdirs();
+		}
+		String qrPath = qrPathDir + File.separator + "QR.jpg";
 		String qrUrl = URLEnum.QRCODE_URL.getUrl() + core.getUuid();
 		HttpEntity entity = myHttpClient.doGet(qrUrl, null, true, null);
 		try {
@@ -152,7 +173,9 @@ public class LoginServiceImpl implements ILoginService {
 		return true;
 	}
 
-	@Override
+	/**
+	 * web初始化
+	 */
 	public boolean webWxInit() {
 		core.setAlive(true);
 		core.setLastNormalRetCodeTime(System.currentTimeMillis());
@@ -163,7 +186,7 @@ public class LoginServiceImpl implements ILoginService {
 		Map<String, Object> paramMap = core.getParamMap();
 
 		// 请求初始化接口
-		HttpEntity entity = httpClient.doPost(url, JSON.toJSONString(paramMap));
+		HttpEntity entity = myHttpClient.doPost(url, JSON.toJSONString(paramMap));
 		try {
 			String result = EntityUtils.toString(entity, Consts.UTF_8);
 			JSONObject obj = JSON.parseObject(result);
@@ -213,7 +236,9 @@ public class LoginServiceImpl implements ILoginService {
 		return true;
 	}
 
-	@Override
+	/**
+	 * 微信状态通知
+	 */
 	public void wxStatusNotify() {
 		// 组装请求URL和参数
 		String url = String.format(URLEnum.STATUS_NOTIFY_URL.getUrl(), core.getLoginInfo().get(StorageLoginInfoEnum.pass_ticket.getKey()));
@@ -226,7 +251,7 @@ public class LoginServiceImpl implements ILoginService {
 		String paramStr = JSON.toJSONString(paramMap);
 
 		try {
-			HttpEntity entity = httpClient.doPost(url, paramStr);
+			HttpEntity entity = myHttpClient.doPost(url, paramStr);
 			EntityUtils.toString(entity, Consts.UTF_8);
 		} catch (Exception e) {
 			LOG.error("微信状态通知接口失败！", e);
@@ -234,7 +259,9 @@ public class LoginServiceImpl implements ILoginService {
 
 	}
 
-	@Override
+	/**
+	 * 接收消息
+	 */
 	public void startReceiving() {
 		core.setAlive(true);
 		new Thread(new Runnable() {
@@ -251,16 +278,17 @@ public class LoginServiceImpl implements ILoginService {
 						if (retcode.equals(RetCodeEnum.UNKOWN.getCode())) {
 							LOG.info(RetCodeEnum.UNKOWN.getType());
 							continue;
-						} else if (retcode.equals(RetCodeEnum.LOGIN_OUT.getCode())) { // 退出
-							LOG.info(RetCodeEnum.LOGIN_OUT.getType());
+						} else if (retcode.equals(RetCodeEnum.NOT_LOGIN_WARN.getCode())) { // 退出
+							LOG.info(RetCodeEnum.NOT_LOGIN_WARN.getType());
 							break;
 						} else if (retcode.equals(RetCodeEnum.LOGIN_OTHERWHERE.getCode())) { // 其它地方登陆
 							LOG.info(RetCodeEnum.LOGIN_OTHERWHERE.getType());
+							core.setAlive(false);
 							break;
 						} else if (retcode.equals(RetCodeEnum.MOBILE_LOGIN_OUT.getCode())) { // 移动端退出
 							LOG.info(RetCodeEnum.MOBILE_LOGIN_OUT.getType());
 							break;
-						} else if (retcode.equals(RetCodeEnum.NORMAL.getCode())) {
+						} else if (retcode.equals(RetCodeEnum.SUCCESS.getCode())) {
 							core.setLastNormalRetCodeTime(System.currentTimeMillis()); // 最后收到正常报文时间
 							JSONObject msgObj = webWxSync();
 							if (selector.equals("2")) {
@@ -324,11 +352,13 @@ public class LoginServiceImpl implements ILoginService {
 
 	}
 
-	@Override
+	/**
+	 * 获取微信联系人
+	 */
 	public void webWxGetContact() {
 		String url = String.format(URLEnum.WEB_WX_GET_CONTACT.getUrl(), core.getLoginInfo().get(StorageLoginInfoEnum.url.getKey()));
 		Map<String, Object> paramMap = core.getParamMap();
-		HttpEntity entity = httpClient.doPost(url, JSON.toJSONString(paramMap));
+		HttpEntity entity = myHttpClient.doPost(url, JSON.toJSONString(paramMap));
 
 		try {
 			String result = EntityUtils.toString(entity, Consts.UTF_8);
@@ -342,13 +372,13 @@ public class LoginServiceImpl implements ILoginService {
 				currentTime = new Date().getTime();
 			}
 			core.setMemberCount(fullFriendsJsonList.getInteger(StorageLoginInfoEnum.MemberCount.getKey()));
-			JSONArray member = fullFriendsJsonList.getJSONArray(StorageLoginInfoEnum.MemberList.getKey());
+			JSONArray members = fullFriendsJsonList.getJSONArray(StorageLoginInfoEnum.MemberList.getKey());
 			// 循环获取seq直到为0，即获取全部好友列表 ==0：好友获取完毕 >0：好友未获取完毕，此时seq为已获取的字节数
 			while (seq > 0) {
 				// 设置seq传参
 				params.add(new BasicNameValuePair("r", String.valueOf(currentTime)));
 				params.add(new BasicNameValuePair("seq", String.valueOf(seq)));
-				entity = httpClient.doGet(url, params, false, null);
+				entity = myHttpClient.doGet(url, params, false, null);
 
 				params.remove(new BasicNameValuePair("r", String.valueOf(currentTime)));
 				params.remove(new BasicNameValuePair("seq", String.valueOf(seq)));
@@ -362,10 +392,10 @@ public class LoginServiceImpl implements ILoginService {
 				}
 
 				// 累加好友列表
-				member.addAll(fullFriendsJsonList.getJSONArray(StorageLoginInfoEnum.MemberList.getKey()));
+				members.addAll(fullFriendsJsonList.getJSONArray(StorageLoginInfoEnum.MemberList.getKey()));
 			}
-			core.setMemberCount(member.size());
-			for (Iterator<?> iterator = member.iterator(); iterator.hasNext();) {
+			core.setMemberCount(members.size());
+			for (Iterator<?> iterator = members.iterator(); iterator.hasNext();) {
 				JSONObject o = (JSONObject) iterator.next();
 				if ((o.getInteger("VerifyFlag") & 8) != 0) { // 公众号/服务号
 					core.getPublicUsersList().add(o);
@@ -390,7 +420,9 @@ public class LoginServiceImpl implements ILoginService {
 		return;
 	}
 
-	@Override
+	/**
+	 * 批量获取联系人信息
+	 */
 	public void WebWxBatchGetContact() {
 		String url = String.format(URLEnum.WEB_WX_BATCH_GET_CONTACT.getUrl(), core.getLoginInfo().get(StorageLoginInfoEnum.url.getKey()), new Date().getTime(), core.getLoginInfo().get(StorageLoginInfoEnum.pass_ticket.getKey()));
 		Map<String, Object> paramMap = core.getParamMap();
@@ -403,7 +435,7 @@ public class LoginServiceImpl implements ILoginService {
 			list.add(map);
 		}
 		paramMap.put("List", list);
-		HttpEntity entity = httpClient.doPost(url, JSON.toJSONString(paramMap));
+		HttpEntity entity = myHttpClient.doPost(url, JSON.toJSONString(paramMap));
 		try {
 			String text = EntityUtils.toString(entity, Consts.UTF_8);
 			JSONObject obj = JSON.parseObject(text);
@@ -426,7 +458,7 @@ public class LoginServiceImpl implements ILoginService {
 	 * @param result
 	 * @return
 	 */
-	public String checklogin(String result) {
+	private String checklogin(String result) {
 		String regEx = "window.code=(\\d+)";
 		Matcher matcher = CommonTools.getMatcher(regEx, result);
 		if (matcher.find()) {
@@ -441,8 +473,9 @@ public class LoginServiceImpl implements ILoginService {
 	 * @author https://github.com/yaphone
 	 * @date 2017年4月9日 下午12:16:26
 	 * @param result
+	 * @return 错误消息
 	 */
-	private void processLoginInfo(String loginContent) {
+	private String processLoginInfo(String loginContent) {
 		String regEx = "window.redirect_uri=\"(\\S+)\";";
 		Matcher matcher = CommonTools.getMatcher(regEx, loginContent);
 		if (matcher.find()) {
@@ -479,14 +512,14 @@ public class LoginServiceImpl implements ILoginService {
 				text = EntityUtils.toString(entity);
 			} catch (Exception e) {
 				LOG.info(e.getMessage());
-				return;
+				return "登陆失败：" + e.getMessage();
 			}
 			// add by 默非默 2017-08-01 22:28:09
 			// 如果登录被禁止时，则登录返回的message内容不为空，下面代码则判断登录内容是否为空，不为空则退出程序
-			String msg = getLoginMessage(text);
+			String msg = extractLoginMessage(text);
 			if (!"".equals(msg)) {
 				LOG.info(msg);
-				System.exit(0);
+				return msg;
 			}
 			Document doc = CommonTools.xmlParser(text);
 			if (doc != null) {
@@ -495,8 +528,9 @@ public class LoginServiceImpl implements ILoginService {
 				core.getLoginInfo().put(StorageLoginInfoEnum.wxuin.getKey(), doc.getElementsByTagName(StorageLoginInfoEnum.wxuin.getKey()).item(0).getFirstChild().getNodeValue());
 				core.getLoginInfo().put(StorageLoginInfoEnum.pass_ticket.getKey(), doc.getElementsByTagName(StorageLoginInfoEnum.pass_ticket.getKey()).item(0).getFirstChild().getNodeValue());
 			}
-
+			return null;
 		}
+		return "登陆失败";
 	}
 
 	private Map<String, List<String>> getPossibleUrlMap() {
@@ -648,7 +682,7 @@ public class LoginServiceImpl implements ILoginService {
 	 * @param result
 	 * @return
 	 */
-	public String getLoginMessage(String result) {
+	private String extractLoginMessage(String result) {
 		String[] strArr = result.split("<message>");
 		String[] rs = strArr[1].split("</message>");
 		if (rs != null && rs.length > 1) {
@@ -656,4 +690,5 @@ public class LoginServiceImpl implements ILoginService {
 		}
 		return "";
 	}
+
 }

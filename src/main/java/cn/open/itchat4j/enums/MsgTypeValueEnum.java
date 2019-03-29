@@ -1,5 +1,9 @@
 package cn.open.itchat4j.enums;
 
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * 消息类型
  * 
@@ -30,21 +34,21 @@ public enum MsgTypeValueEnum {
 	MSGTYPE_TEXT(1, "文本消息"), //
 	MSGTYPE_IMAGE(3, "图片消息"), //
 	MSGTYPE_VOICE(34, "语音消息"), //
-	MSGTYPE_VIDEO(43, "视频消息"), //
-	MSGTYPE_MICROVIDEO(62, "小视频消息"), //
-	MSGTYPE_EMOTICON(47, "表情消息"), //
-	MSGTYPE_MEDIA(49, "多媒体消息"), //
-	MSGTYPE_VOIPMSG(50, ""), //
-	MSGTYPE_VOIPNOTIFY(52, ""), //
-	MSGTYPE_VOIPINVITE(53, ""), //
-	MSGTYPE_LOCATION(48, ""), //
-	MSGTYPE_STATUSNOTIFY(51, ""), //
-	MSGTYPE_SYSNOTICE(9999, ""), //
-	MSGTYPE_POSSIBLEFRIEND_MSG(40, ""), //
 	MSGTYPE_VERIFYMSG(37, "好友请求"), //
+	MSGTYPE_POSSIBLEFRIEND_MSG(40, ""), //
 	MSGTYPE_SHARECARD(42, ""), //
+	MSGTYPE_VIDEO(43, "视频消息"), //
+	MSGTYPE_EMOTICON(47, "表情消息"), //
+	MSGTYPE_LOCATION(48, "位置消息"), //
+	MSGTYPE_MEDIA(49, "分享链接"), // 媒体??
+	MSGTYPE_VOIPMSG(50, "VOIPMSG"), //
+	MSGTYPE_STATUSNOTIFY(51, "状态通知"), //
+	MSGTYPE_VOIPNOTIFY(52, "VOIPNOTIFY"), //
+	MSGTYPE_VOIPINVITE(53, "VOIPINVITE"), //
+	MSGTYPE_MICROVIDEO(62, "短视频消息"), //
+	MSGTYPE_SYSNOTICE(9999, "SYSNOTICE"), //
 	MSGTYPE_SYS(10000, "系统消息"), //
-	MSGTYPE_RECALLED(10002, "");
+	MSGTYPE_RECALLED(10002, "撤回消息");
 
 	private int value;
 	private String name;
@@ -60,6 +64,17 @@ public enum MsgTypeValueEnum {
 
 	public String getName() {
 		return name;
+	}
+
+	private static final Map<Integer, MsgTypeValueEnum> lookup = new HashMap<>();
+	static {
+		for (MsgTypeValueEnum elem : EnumSet.allOf(MsgTypeValueEnum.class)) {
+			lookup.put(elem.getValue(), elem);
+		}
+	}
+
+	public static MsgTypeValueEnum fromValue(Integer value) {
+		return value == null ? null : lookup.get(value);
 	}
 
 }

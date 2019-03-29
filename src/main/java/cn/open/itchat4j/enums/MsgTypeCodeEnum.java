@@ -13,9 +13,11 @@ public enum MsgTypeCodeEnum {
 	PIC("Pic", "图片消息"), //
 	VOICE("Voice", "语音消息"), //
 	VIEDO("Viedo", "小视频消息"), //
-	NAMECARD("NameCard", "名片消息"), //
-	SYS("Sys", "系统消息"), //
+	MAP("Map", "地理位置"), //
 	VERIFYMSG("VerifyMsg", "添加好友"), //
+	SYS("Sys", "系统消息"), //
+	NAMECARD("NameCard", "名片消息"), //
+	//
 	MEDIA("app", "文件消息");
 
 	private String code;

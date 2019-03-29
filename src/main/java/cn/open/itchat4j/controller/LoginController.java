@@ -1,12 +1,15 @@
 package cn.open.itchat4j.controller;
 
+import java.io.StringWriter;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.alibaba.fastjson.JSONObject;
+
+import cn.open.itchat4j.WechatHelper;
 import cn.open.itchat4j.api.WechatTools;
 import cn.open.itchat4j.core.Core;
-import cn.open.itchat4j.service.ILoginService;
-import cn.open.itchat4j.service.impl.LoginServiceImpl;
 import cn.open.itchat4j.thread.CheckLoginStatusThread;
 import cn.open.itchat4j.tools.CommonTools;
 import cn.open.itchat4j.utils.SleepUtils;
@@ -21,7 +24,7 @@ import cn.open.itchat4j.utils.SleepUtils;
  */
 public class LoginController {
 	private static Logger LOG = LoggerFactory.getLogger(LoginController.class);
-	private ILoginService loginService = new LoginServiceImpl();
+	private WechatHelper loginService = WechatHelper.getInstance();
 	private static Core core = Core.getInstance();
 
 	public void login(String qrPath) {
@@ -49,10 +52,10 @@ public class LoginController {
 			}
 			LOG.info("3. 请扫描二维码图片，并在手机上确认");
 			if (!core.isAlive()) {
-				loginService.login();
-				core.setAlive(true);
-				LOG.info(("登陆成功"));
-				break;
+				if (loginService.login()) {
+					LOG.info(("登陆成功"));
+					break;
+				}
 			}
 			LOG.info("4. 登陆超时，请重新扫描二维码图片");
 		}
@@ -75,7 +78,7 @@ public class LoginController {
 
 		LOG.info("9. 获取联系人信息");
 		loginService.webWxGetContact();
-
+		
 		LOG.info("10. 获取群好友及群好友列表");
 		loginService.WebWxBatchGetContact();
 
@@ -83,6 +86,12 @@ public class LoginController {
 		WechatTools.setUserInfo(); // 登陆成功后缓存本次登陆好友相关消息（NickName, UserName）
 
 		LOG.info("12.开启微信状态检测线程");
+		
+		StringWriter sw = new StringWriter();
+		JSONObject.writeJSONString(sw, core);
+		
+		System.out.println(sw.toString());
+		
 		new Thread(new CheckLoginStatusThread()).start();
 	}
 }

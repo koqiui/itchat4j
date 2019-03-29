@@ -8,16 +8,9 @@ package cn.open.itchat4j.service;
  * @version 1.0
  *
  */
-public interface ILoginService {
-
-	/**
-	 * 登陆
-	 * 
-	 * @author https://github.com/yaphone
-	 * @date 2017年5月13日 上午12:14:07
-	 * @return
-	 */
-	boolean login();
+public interface WechatService {
+	
+	boolean isAlive();
 
 	/**
 	 * 获取UUID
@@ -30,13 +23,23 @@ public interface ILoginService {
 	String getUuid();
 
 	/**
-	 * 获取二维码图片
+	 * 登陆
+	 * 
+	 * @author https://github.com/yaphone
+	 * @date 2017年5月13日 上午12:14:07
+	 * @return
+	 */
+	boolean login();
+
+	/**
+	 * 获取二维码图片 (直接获取图片链接,不下载文件)
 	 * 
 	 * @author https://github.com/yaphone
 	 * @date 2017年5月13日 上午12:13:51
 	 * @param qrPath
 	 * @return
 	 */
+	@Deprecated
 	boolean getQR(String qrPath);
 
 	/**

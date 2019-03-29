@@ -33,35 +33,20 @@ import org.apache.http.util.EntityUtils;
  *
  */
 public class MyHttpClient {
-	private Logger logger = Logger.getLogger("MyHttpClient");
+	private static Logger logger = Logger.getLogger(MyHttpClient.class.getName());
+	//
+	private CookieStore cookieStore;
+	private CloseableHttpClient httpClient;
 
-	private static CloseableHttpClient httpClient = HttpClients.createDefault();
+	public CookieStore getCookieStore() {
+		return cookieStore;
+	}
+
+	public CloseableHttpClient getHttpClient() {
+		return httpClient;
+	}
 
 	private static MyHttpClient instance = null;
-
-	private static CookieStore cookieStore;
-
-	static {
-		cookieStore = new BasicCookieStore();
-
-		// 将CookieStore设置到httpClient中
-		httpClient = HttpClients.custom().setDefaultCookieStore(cookieStore).build();
-	}
-
-	public static String getCookie(String name) {
-		List<Cookie> cookies = cookieStore.getCookies();
-		for (Cookie cookie : cookies) {
-			if (cookie.getName().equalsIgnoreCase(name)) {
-				return cookie.getValue();
-			}
-		}
-		return null;
-
-	}
-
-	private MyHttpClient() {
-
-	}
 
 	/**
 	 * 获取cookies
@@ -70,15 +55,33 @@ public class MyHttpClient {
 	 * @date 2017年5月7日 下午8:37:17
 	 * @return
 	 */
-	public static MyHttpClient getInstance() {
+	public static MyHttpClient getInstance(CookieStore cookieStore) {
 		if (instance == null) {
 			synchronized (MyHttpClient.class) {
 				if (instance == null) {
-					instance = new MyHttpClient();
+					instance = new MyHttpClient(cookieStore);
 				}
 			}
 		}
 		return instance;
+	}
+
+	public String getCookie(String name) {
+		List<Cookie> cookies = cookieStore.getCookies();
+		for (Cookie cookie : cookies) {
+			if (cookie.getName().equalsIgnoreCase(name)) {
+				return cookie.getValue();
+			}
+		}
+		return null;
+	}
+
+	private MyHttpClient(CookieStore cookieStore) {
+		if (cookieStore == null) {
+			cookieStore = new BasicCookieStore();
+		}
+		this.cookieStore = cookieStore;
+		this.httpClient = HttpClients.custom().setDefaultCookieStore(cookieStore).build();
 	}
 
 	/**
@@ -90,12 +93,10 @@ public class MyHttpClient {
 	 * @param params
 	 * @return
 	 */
-	public HttpEntity doGet(String url, List<BasicNameValuePair> params, boolean redirect,
-			Map<String, String> headerMap) {
+	public HttpEntity doGet(String url, List<BasicNameValuePair> params, boolean redirect, Map<String, String> headerMap) {
 		HttpEntity entity = null;
-		HttpGet httpGet = new HttpGet();
-
 		try {
+			HttpGet httpGet = new HttpGet();
 			if (params != null) {
 				String paramStr = EntityUtils.toString(new UrlEncodedFormEntity(params, Consts.UTF_8));
 				httpGet = new HttpGet(url + "?" + paramStr);
@@ -134,8 +135,8 @@ public class MyHttpClient {
 	 */
 	public HttpEntity doPost(String url, String paramsStr) {
 		HttpEntity entity = null;
-		HttpPost httpPost = new HttpPost();
 		try {
+			HttpPost httpPost = new HttpPost();
 			StringEntity params = new StringEntity(paramsStr, Consts.UTF_8);
 			httpPost = new HttpPost(url);
 			httpPost.setEntity(params);
@@ -174,10 +175,6 @@ public class MyHttpClient {
 			logger.info(e.getMessage());
 		}
 		return entity;
-	}
-
-	public static CloseableHttpClient getHttpClient() {
-		return httpClient;
 	}
 
 }

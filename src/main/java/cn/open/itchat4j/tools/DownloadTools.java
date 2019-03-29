@@ -27,7 +27,7 @@ import cn.open.itchat4j.utils.MyHttpClient;
  *
  */
 public class DownloadTools {
-	private static Logger logger = Logger.getLogger("DownloadTools");
+	private static Logger logger = Logger.getLogger(DownloadTools.class.getSimpleName());
 	private static Core core = Core.getInstance();
 	private static MyHttpClient myHttpClient = core.getMyHttpClient();
 

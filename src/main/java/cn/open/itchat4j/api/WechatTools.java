@@ -19,6 +19,7 @@ import com.alibaba.fastjson.JSONObject;
 import cn.open.itchat4j.core.Core;
 import cn.open.itchat4j.enums.StorageLoginInfoEnum;
 import cn.open.itchat4j.enums.URLEnum;
+import cn.open.itchat4j.utils.MyHttpClient;
 
 /**
  * 微信小工具，如获好友列表等
@@ -32,6 +33,7 @@ public class WechatTools {
 	private static Logger LOG = LoggerFactory.getLogger(WechatTools.class);
 
 	private static Core core = Core.getInstance();
+	private static MyHttpClient myHttpClient = core.getMyHttpClient();
 
 	/**
 	 * 根据用户名发送文本消息
@@ -151,7 +153,7 @@ public class WechatTools {
 		params.add(new BasicNameValuePair("type", "1"));
 		params.add(new BasicNameValuePair("skey", (String) core.getLoginInfo().get(StorageLoginInfoEnum.skey.getKey())));
 		try {
-			HttpEntity entity = core.getMyHttpClient().doGet(url, params, false, null);
+			HttpEntity entity = myHttpClient.doGet(url, params, false, null);
 			String text = EntityUtils.toString(entity, Consts.UTF_8); // 无消息
 			return true;
 		} catch (Exception e) {
@@ -189,7 +191,7 @@ public class WechatTools {
 		msgMap.put("BaseRequest", msgMap_BaseRequest);
 		try {
 			String paramStr = JSON.toJSONString(msgMap);
-			HttpEntity entity = core.getMyHttpClient().doPost(url, paramStr);
+			HttpEntity entity = myHttpClient.doPost(url, paramStr);
 			// String result = EntityUtils.toString(entity, Consts.UTF_8);
 			LOG.info("修改备注" + remName);
 		} catch (Exception e) {
