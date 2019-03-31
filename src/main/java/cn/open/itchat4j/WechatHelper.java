@@ -206,11 +206,19 @@ public class WechatHelper {
 	 */
 	public void doLogin(String qrPath) {
 		if (core.isAlive()) {
-			logger.warn("已经登陆...");
+			logger.warn("已经登陆在线...");
+		}
+		//
+		if (!isRunning) {
+			return;
 		}
 		//
 		Boolean result = this.tryToLogin();
 		while (result == null) {
+			if (!isRunning) {
+				return;
+			}
+			//
 			logger.info("等待扫码确认登陆...");
 			SleepUtils.sleep(1000);
 			result = this.tryToLogin();
@@ -221,6 +229,9 @@ public class WechatHelper {
 		} else {
 			int tryTimes = 15;
 			for (int count = 0; count < tryTimes;) {
+				if (!isRunning) {
+					return;
+				}
 				count++;
 				//
 				logger.info("获取UUID");
@@ -228,9 +239,15 @@ public class WechatHelper {
 				String uuid = null;
 				int uuidTimes = 6;
 				while ((uuid = this.getUuid(true)) == null && uuidTimes > 0) {
+					if (!isRunning) {
+						return;
+					}
 					uuidTimes--;
 					logger.warn("10秒后重新获取uuid");
 					SleepUtils.sleep(10000);
+				}
+				if (!isRunning) {
+					return;
 				}
 				//
 				if (uuid == null) {
@@ -255,7 +272,10 @@ public class WechatHelper {
 			this.doLogin(qrPath);
 		}
 		//
-
+		if (!isRunning) {
+			return;
+		}
+		//
 		logger.info("初始化基本信息");
 		if (this.initBasicInfo()) {
 			// CommonTools.clearScreen();
@@ -740,7 +760,7 @@ public class WechatHelper {
 			}
 			retMsgList.add(retMsg);
 			//
-			logger.info("收到一条来自 " + fromUserName + " 的 " + retMsg.getString("Type") + " 消息：");
+			logger.info(fromUserName + " => " + toUserName + " 的 " + retMsg.getString("Type") + " 的消息：");
 			logger.info(retMsg.toJSONString());
 		}
 		return retMsgList;
