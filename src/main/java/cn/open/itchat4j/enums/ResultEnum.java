@@ -7,7 +7,7 @@ package cn.open.itchat4j.enums;
  */
 public enum ResultEnum {
 
-	SUCCESS("200", "成功"), WAIT_CONFIRM("201", "请在手机上点击确认"), WAIT_SCAN("400", "请扫描二维码");
+	SUCCESS("200", "成功"), WAIT_CONFIRM("201", "请在手机上点击确认"), WAIT_SCAN("400", "请扫描二维码"), WAIT_TIMEOUT("408", "登陆响应超时");
 
 	private String code;
 	private String message;

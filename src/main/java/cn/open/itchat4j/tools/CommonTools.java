@@ -20,7 +20,6 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.vdurmont.emoji.EmojiParser;
 
-import cn.open.itchat4j.enums.OsNameEnum;
 import cn.open.itchat4j.utils.Config;
 
 /**

@@ -16,7 +16,6 @@ import cn.open.itchat4j.beans.BaseMsg;
 import cn.open.itchat4j.core.Core;
 import cn.open.itchat4j.enums.MsgTypeCodeEnum;
 import cn.open.itchat4j.enums.URLEnum;
-import cn.open.itchat4j.utils.MyHttpClient;
 
 /**
  * 下载工具类
@@ -29,7 +28,6 @@ import cn.open.itchat4j.utils.MyHttpClient;
 public class DownloadTools {
 	private static Logger logger = Logger.getLogger(DownloadTools.class.getSimpleName());
 	private static Core core = Core.getInstance();
-	private static MyHttpClient myHttpClient = core.getMyHttpClient();
 
 	/**
 	 * 处理下载任务
@@ -61,7 +59,7 @@ public class DownloadTools {
 		}
 		params.add(new BasicNameValuePair("msgid", msg.getNewMsgId()));
 		params.add(new BasicNameValuePair("skey", (String) core.getLoginInfo().get("skey")));
-		HttpEntity entity = myHttpClient.doGet(url, params, true, headerMap);
+		HttpEntity entity = core.getMyHttpClient().doGet(url, params, true, headerMap);
 		try {
 			OutputStream out = new FileOutputStream(path);
 			byte[] bytes = EntityUtils.toByteArray(entity);

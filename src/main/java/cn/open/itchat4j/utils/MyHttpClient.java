@@ -24,6 +24,8 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 
+import cn.open.itchat4j.core.CookieStoreHolder;
+
 /**
  * HTTP访问类，对Apache HttpClient进行简单封装，适配器模式
  * 
@@ -34,36 +36,20 @@ import org.apache.http.util.EntityUtils;
  */
 public class MyHttpClient {
 	private static Logger logger = Logger.getLogger(MyHttpClient.class.getName());
+
 	//
-	private CookieStore cookieStore;
+	private CookieStoreHolder cookieStoreHolder;
 	private CloseableHttpClient httpClient;
+	private CookieStore cookieStore;
 
-	public CookieStore getCookieStore() {
-		return cookieStore;
-	}
-
-	public CloseableHttpClient getHttpClient() {
-		return httpClient;
-	}
-
-	private static MyHttpClient instance = null;
-
-	/**
-	 * 获取cookies
-	 * 
-	 * @author https://github.com/yaphone
-	 * @date 2017年5月7日 下午8:37:17
-	 * @return
-	 */
-	public static MyHttpClient getInstance(CookieStore cookieStore) {
-		if (instance == null) {
-			synchronized (MyHttpClient.class) {
-				if (instance == null) {
-					instance = new MyHttpClient(cookieStore);
-				}
-			}
+	public MyHttpClient(CookieStoreHolder cookieStoreHolder) {
+		this.cookieStoreHolder = cookieStoreHolder;
+		this.cookieStore = this.cookieStoreHolder.getCookieStore();
+		if (this.cookieStore == null) {
+			this.cookieStore = new BasicCookieStore();
+			this.cookieStoreHolder.saveCookieStore(this.cookieStore);
 		}
-		return instance;
+		this.httpClient = HttpClients.custom().setDefaultCookieStore(this.cookieStore).build();
 	}
 
 	public String getCookie(String name) {
@@ -74,14 +60,6 @@ public class MyHttpClient {
 			}
 		}
 		return null;
-	}
-
-	private MyHttpClient(CookieStore cookieStore) {
-		if (cookieStore == null) {
-			cookieStore = new BasicCookieStore();
-		}
-		this.cookieStore = cookieStore;
-		this.httpClient = HttpClients.custom().setDefaultCookieStore(cookieStore).build();
 	}
 
 	/**
@@ -119,6 +97,8 @@ public class MyHttpClient {
 			logger.info(e.getMessage());
 		} catch (IOException e) {
 			logger.info(e.getMessage());
+		} finally {
+			this.cookieStoreHolder.saveCookieStore(cookieStore);
 		}
 
 		return entity;
@@ -148,6 +128,8 @@ public class MyHttpClient {
 			logger.info(e.getMessage());
 		} catch (IOException e) {
 			logger.info(e.getMessage());
+		} finally {
+			this.cookieStoreHolder.saveCookieStore(cookieStore);
 		}
 
 		return entity;
@@ -170,9 +152,10 @@ public class MyHttpClient {
 		try {
 			CloseableHttpResponse response = httpClient.execute(httpPost);
 			entity = response.getEntity();
-
 		} catch (Exception e) {
 			logger.info(e.getMessage());
+		} finally {
+			this.cookieStoreHolder.saveCookieStore(cookieStore);
 		}
 		return entity;
 	}

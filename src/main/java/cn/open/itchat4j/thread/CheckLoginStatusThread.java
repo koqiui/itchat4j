@@ -18,7 +18,7 @@ import cn.open.itchat4j.utils.SleepUtils;
  *
  */
 public class CheckLoginStatusThread implements Runnable {
-	private static Logger LOG = LoggerFactory.getLogger(CheckLoginStatusThread.class);
+	private static Logger logger = LoggerFactory.getLogger(CheckLoginStatusThread.class);
 	private Core core = Core.getInstance();
 
 	@Override
@@ -27,7 +27,7 @@ public class CheckLoginStatusThread implements Runnable {
 			long t1 = System.currentTimeMillis(); // 秒为单位
 			if (t1 - core.getLastNormalRetCodeTime() > 60 * 1000) { // 超过60秒，判为离线
 				core.setAlive(false);
-				LOG.info("微信已离线");
+				logger.info("微信已离线");
 			}
 			SleepUtils.sleep(10 * 1000); // 休眠10秒
 		}

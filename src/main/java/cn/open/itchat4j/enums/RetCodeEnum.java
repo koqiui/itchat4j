@@ -17,19 +17,19 @@ public enum RetCodeEnum {
 	UNKOWN("9999", "未知");
 
 	private String code;
-	private String type;
+	private String message;
 
-	RetCodeEnum(String code, String type) {
+	RetCodeEnum(String code, String message) {
 		this.code = code;
-		this.type = type;
+		this.message = message;
 	}
 
 	public String getCode() {
 		return code;
 	}
 
-	public String getType() {
-		return type;
+	public String getMessage() {
+		return message;
 	}
 
 	private static final Map<String, RetCodeEnum> lookup = new HashMap<String, RetCodeEnum>();

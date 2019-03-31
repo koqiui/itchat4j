@@ -19,7 +19,6 @@ import com.alibaba.fastjson.JSONObject;
 import cn.open.itchat4j.core.Core;
 import cn.open.itchat4j.enums.StorageLoginInfoEnum;
 import cn.open.itchat4j.enums.URLEnum;
-import cn.open.itchat4j.utils.MyHttpClient;
 
 /**
  * 微信小工具，如获好友列表等
@@ -30,10 +29,9 @@ import cn.open.itchat4j.utils.MyHttpClient;
  *
  */
 public class WechatTools {
-	private static Logger LOG = LoggerFactory.getLogger(WechatTools.class);
+	private static Logger logger = LoggerFactory.getLogger(WechatTools.class);
 
 	private static Core core = Core.getInstance();
-	private static MyHttpClient myHttpClient = core.getMyHttpClient();
 
 	/**
 	 * 根据用户名发送文本消息
@@ -116,16 +114,6 @@ public class WechatTools {
 	}
 
 	/**
-	 * 获取群NickName列表
-	 * 
-	 * @date 2017年6月21日 下午11:43:38
-	 * @return
-	 */
-	public static List<String> getGroupNickNameList() {
-		return core.getGroupNickNameList();
-	}
-
-	/**
 	 * 根据groupIdList返回群成员列表
 	 * 
 	 * @date 2017年6月13日 下午11:12:31
@@ -133,7 +121,8 @@ public class WechatTools {
 	 * @return
 	 */
 	public static JSONArray getMemberListByGroupId(String groupId) {
-		return core.getGroupMemeberMap().get(groupId);
+		JSONObject member = core.getMember(groupId);
+		return (JSONArray) (member == null ? null : member.get("MemberList"));
 	}
 
 	/**
@@ -153,20 +142,13 @@ public class WechatTools {
 		params.add(new BasicNameValuePair("type", "1"));
 		params.add(new BasicNameValuePair("skey", (String) core.getLoginInfo().get(StorageLoginInfoEnum.skey.getKey())));
 		try {
-			HttpEntity entity = myHttpClient.doGet(url, params, false, null);
+			HttpEntity entity = core.getMyHttpClient().doGet(url, params, false, null);
 			String text = EntityUtils.toString(entity, Consts.UTF_8); // 无消息
 			return true;
 		} catch (Exception e) {
-			LOG.debug(e.getMessage());
+			logger.warn(e.getMessage());
 		}
 		return false;
-	}
-
-	public static void setUserInfo() {
-		for (JSONObject o : core.getContactList()) {
-			core.getUserInfoMap().put(o.getString("NickName"), o);
-			core.getUserInfoMap().put(o.getString("UserName"), o);
-		}
 	}
 
 	/**
@@ -183,7 +165,8 @@ public class WechatTools {
 		Map<String, Object> msgMap_BaseRequest = new HashMap<String, Object>();
 		msgMap.put("CmdId", 2);
 		msgMap.put("RemarkName", remName);
-		msgMap.put("UserName", core.getUserInfoMap().get(nickName).get("UserName"));
+		String userName = getUserNameByNickName(nickName);
+		msgMap.put("UserName", userName);
 		msgMap_BaseRequest.put("Uin", core.getLoginInfo().get(StorageLoginInfoEnum.wxuin.getKey()));
 		msgMap_BaseRequest.put("Sid", core.getLoginInfo().get(StorageLoginInfoEnum.wxsid.getKey()));
 		msgMap_BaseRequest.put("Skey", core.getLoginInfo().get(StorageLoginInfoEnum.skey.getKey()));
@@ -191,11 +174,11 @@ public class WechatTools {
 		msgMap.put("BaseRequest", msgMap_BaseRequest);
 		try {
 			String paramStr = JSON.toJSONString(msgMap);
-			HttpEntity entity = myHttpClient.doPost(url, paramStr);
+			HttpEntity entity = core.getMyHttpClient().doPost(url, paramStr);
 			// String result = EntityUtils.toString(entity, Consts.UTF_8);
-			LOG.info("修改备注" + remName);
+			logger.info("修改备注" + remName);
 		} catch (Exception e) {
-			LOG.error("remarkNameByUserName", e);
+			logger.error("remarkNameByUserName", e);
 		}
 	}
 

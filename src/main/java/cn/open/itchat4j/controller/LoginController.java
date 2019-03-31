@@ -8,11 +8,12 @@ import org.slf4j.LoggerFactory;
 import com.alibaba.fastjson.JSONObject;
 
 import cn.open.itchat4j.WechatHelper;
-import cn.open.itchat4j.api.WechatTools;
 import cn.open.itchat4j.core.Core;
+import cn.open.itchat4j.core.CoreDataStore;
+import cn.open.itchat4j.core.FileDataStore;
 import cn.open.itchat4j.thread.CheckLoginStatusThread;
-import cn.open.itchat4j.tools.CommonTools;
 import cn.open.itchat4j.utils.SleepUtils;
+import cn.open.itchat4j.utils.SysUtils;
 
 /**
  * 登陆控制器
@@ -23,75 +24,77 @@ import cn.open.itchat4j.utils.SleepUtils;
  *
  */
 public class LoginController {
-	private static Logger LOG = LoggerFactory.getLogger(LoginController.class);
-	private WechatHelper loginService = WechatHelper.getInstance();
+	private static Logger logger = LoggerFactory.getLogger(LoginController.class);
+	private WechatHelper wechatHelper = WechatHelper.getInstance();
 	private static Core core = Core.getInstance();
 
+	public LoginController() {
+		// wechatHelper.initCore();
+		String dataFilePath = SysUtils.selectByOs("E:/MiscData/swb/itchat/data.json", "/swb-base/data/itchat/data.json");
+		FileDataStore dataStore = new FileDataStore(dataFilePath);
+		wechatHelper.initCore(dataStore);
+	}
+
 	public void login(String qrPath) {
-		if (core.isAlive()) { // 已登陆
-			LOG.info("itchat4j已登陆");
+		if (core.isAlive()) {
+			logger.info("已经登陆了");
 			return;
 		}
-		while (true) {
+		logger.info("4. 试着登陆...");
+		Boolean result = wechatHelper.tryToLogin();
+		if (result == null) {
+			logger.warn("正在试着登陆");
+			return;
+		} else if (Boolean.TRUE.equals(result)) {
+			logger.info(("陆成功"));
+		} else {
 			for (int count = 0; count < 10; count++) {
-				LOG.info("获取UUID");
-				while (loginService.getUuid() == null) {
-					LOG.info("1. 获取微信UUID");
-					while (loginService.getUuid() == null) {
-						LOG.warn("1.1. 获取微信UUID失败，两秒后重新获取");
-						SleepUtils.sleep(2000);
-					}
+				logger.info("1. 获取UUID");
+				String uuid = null;
+				while ((uuid = wechatHelper.getUuid(true)) == null) {
+					logger.warn("1.1. 获取微信UUID失败，两秒后重新获取");
+					SleepUtils.sleep(2000);
 				}
-				LOG.info("2. 获取登陆二维码图片");
-				if (loginService.getQR(qrPath)) {
+				logger.info("2. 获取登陆二维码图片");
+				if (wechatHelper.getAndOpenQrImage(uuid, qrPath)) {
 					break;
 				} else if (count == 10) {
-					LOG.error("2.2. 获取登陆二维码图片失败，系统退出");
-					System.exit(0);
+					logger.error("2.1. 获取登陆二维码图片失败");
+					return;
 				}
 			}
-			LOG.info("3. 请扫描二维码图片，并在手机上确认");
-			if (!core.isAlive()) {
-				if (loginService.login()) {
-					LOG.info(("登陆成功"));
-					break;
-				}
-			}
-			LOG.info("4. 登陆超时，请重新扫描二维码图片");
+			//
+			logger.info("3. 请扫描二维码图片，并在手机上确认");
+			//
+			this.login(qrPath);
 		}
+		//
+		logger.info("5. 微信初始化");
+		wechatHelper.initBasicInfo();
 
-		LOG.info("5. 登陆成功，微信初始化");
-		if (!loginService.webWxInit()) {
-			LOG.info("6. 微信初始化异常");
-			System.exit(0);
-		}
+		logger.info("6. 开启微信状态通知");
+		wechatHelper.initStatusNotify();
 
-		LOG.info("6. 开启微信状态通知");
-		loginService.wxStatusNotify();
+		// logger.info("7. 清除。。。。");
+		// CommonTools.clearScreen();
+		logger.info(String.format("欢迎回来， %s", core.getNickName()));
 
-		LOG.info("7. 清除。。。。");
-		CommonTools.clearScreen();
-		LOG.info(String.format("欢迎回来， %s", core.getNickName()));
+		logger.info("8. 开始接收消息");
+		wechatHelper.startReceiving();
 
-		LOG.info("8. 开始接收消息");
-		loginService.startReceiving();
+		logger.info("9. 获取联系人信息");
+		wechatHelper.fetchContacts();
 
-		LOG.info("9. 获取联系人信息");
-		loginService.webWxGetContact();
-		
-		LOG.info("10. 获取群好友及群好友列表");
-		loginService.WebWxBatchGetContact();
+		logger.info("10. 获取群好友及群好友列表");
+		wechatHelper.fetchGroups();
 
-		LOG.info("11. 缓存本次登陆好友相关消息");
-		WechatTools.setUserInfo(); // 登陆成功后缓存本次登陆好友相关消息（NickName, UserName）
+		logger.info("12.开启微信状态检测线程");
 
-		LOG.info("12.开启微信状态检测线程");
-		
-		StringWriter sw = new StringWriter();
-		JSONObject.writeJSONString(sw, core);
-		
-		System.out.println(sw.toString());
-		
+		// CoreDataStore dataStore = core.getDataStore();
+		// StringWriter sw = new StringWriter();
+		// JSONObject.writeJSONString(sw, dataStore.getAll());
+		// System.out.println(sw.toString());
+
 		new Thread(new CheckLoginStatusThread()).start();
 	}
 }

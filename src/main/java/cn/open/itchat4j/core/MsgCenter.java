@@ -25,7 +25,7 @@ import cn.open.itchat4j.tools.CommonTools;
  *
  */
 public class MsgCenter {
-	private static Logger LOG = LoggerFactory.getLogger(MsgCenter.class);
+	private static Logger logger = LoggerFactory.getLogger(MsgCenter.class);
 
 	private static Core core = Core.getInstance();
 
@@ -100,20 +100,20 @@ public class MsgCenter {
 			} else if (tmpMsgType.equals(MsgTypeValueEnum.MSGTYPE_STATUSNOTIFY.getValue())) {// phone
 				// init
 				// 微信初始化消息
-				LOG.info("---- ----" + MsgTypeValueEnum.MSGTYPE_STATUSNOTIFY.getName());
-				LOG.info("");
+				logger.info("---- ----" + MsgTypeValueEnum.MSGTYPE_STATUSNOTIFY.getName());
+				logger.info("");
 
 			} else if (tmpMsgType.equals(MsgTypeValueEnum.MSGTYPE_SYS.getValue())) {// 系统消息
 				retMsg.put("Type", MsgTypeCodeEnum.SYS.getCode());
 			} else if (tmpMsgType.equals(MsgTypeValueEnum.MSGTYPE_RECALLED.getValue())) { // 撤回消息
 
 			} else {
-				LOG.info("Useless msg");
+				logger.info("Useless msg");
 			}
 			retMsgList.add(retMsg);
 			//
-			LOG.info("收到一条来自 " + fromUserName + " 的 " + retMsg.getString("Type") + " 消息：");
-			LOG.info(retMsg.toJSONString());
+			logger.info("收到一条来自 " + fromUserName + " 的 " + retMsg.getString("Type") + " 消息：");
+			logger.info(retMsg.toJSONString());
 		}
 		return retMsgList;
 	}
