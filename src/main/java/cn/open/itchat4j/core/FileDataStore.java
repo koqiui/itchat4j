@@ -129,6 +129,11 @@ public class FileDataStore implements CoreDataStore {
 	}
 
 	@Override
+	public void del(String key) {
+		dataMap.remove(key);
+	}
+
+	@Override
 	public boolean save() {
 		try {
 			File dataFile = new File(this.dataFilePath);

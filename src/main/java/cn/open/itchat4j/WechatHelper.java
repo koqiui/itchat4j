@@ -30,7 +30,8 @@ import cn.open.itchat4j.beans.BaseMsg;
 import cn.open.itchat4j.beans.ImageBytes;
 import cn.open.itchat4j.core.Core;
 import cn.open.itchat4j.core.CoreDataStore;
-import cn.open.itchat4j.core.MsgCenter;
+import cn.open.itchat4j.enums.MsgTypeCodeEnum;
+import cn.open.itchat4j.enums.MsgTypeValueEnum;
 import cn.open.itchat4j.enums.ResultEnum;
 import cn.open.itchat4j.enums.RetCodeEnum;
 import cn.open.itchat4j.enums.StorageLoginInfoEnum;
@@ -49,7 +50,8 @@ import cn.open.itchat4j.utils.SleepUtils;
  * @author https://github.com/yaphone
  * @date 创建时间：2017年5月13日 上午12:09:35
  * @version 1.0
- *
+ * 
+ *          TODO 重置联系人信息
  */
 public class WechatHelper {
 	private static Logger logger = LoggerFactory.getLogger(WechatHelper.class);
@@ -61,6 +63,73 @@ public class WechatHelper {
 	}
 
 	private static WechatHelper instance = new WechatHelper();
+	//
+	private Map<String, List<String>> wxDomainUrlMap = new HashMap<String, List<String>>() {
+		private static final long serialVersionUID = 1L;
+
+		{
+			put("wx.qq.com", new ArrayList<String>() {
+				/**
+				 * 
+				 */
+				private static final long serialVersionUID = 1L;
+
+				{
+					add("file.wx.qq.com");
+					add("webpush.wx.qq.com");
+				}
+			});
+
+			put("wx2.qq.com", new ArrayList<String>() {
+				/**
+				 * 
+				 */
+				private static final long serialVersionUID = 1L;
+
+				{
+					add("file.wx2.qq.com");
+					add("webpush.wx2.qq.com");
+				}
+			});
+
+			put("wx8.qq.com", new ArrayList<String>() {
+				/**
+				 * 
+				 */
+				private static final long serialVersionUID = 1L;
+
+				{
+					add("file.wx8.qq.com");
+					add("webpush.wx8.qq.com");
+				}
+			});
+
+			put("web2.wechat.com", new ArrayList<String>() {
+				/**
+				 * 
+				 */
+				private static final long serialVersionUID = 1L;
+
+				{
+					add("file.web2.wechat.com");
+					add("webpush.web2.wechat.com");
+				}
+			});
+
+			put("wechat.com", new ArrayList<String>() {
+				/**
+				 * 
+				 */
+				private static final long serialVersionUID = 1L;
+
+				{
+					add("file.web.wechat.com");
+					add("webpush.web.wechat.com");
+				}
+			});
+		}
+
+	};
 
 	public static WechatHelper getInstance() {
 		return instance;
@@ -74,6 +143,9 @@ public class WechatHelper {
 		core.doInit(dataStore);
 		//
 		this.startup();
+
+		//
+		logger.info(JSON.toJSONString(this.wxDomainUrlMap, true));
 	}
 
 	private ReentrantLock isRunningLock = new ReentrantLock();
@@ -91,9 +163,7 @@ public class WechatHelper {
 			//
 			core.saveStoreData();
 			//
-			if (receivingThread != null && receivingThread.isAlive()) {
-				receivingThread.interrupt();
-			}
+			this.stopHeatbeat();
 		} finally {
 			isRunningLock.unlock();
 		}
@@ -108,13 +178,101 @@ public class WechatHelper {
 				return;
 			}
 			isRunning = true;
-			// TODO 做些启动的处理
-
 			//
 			logger.info("Helper已启动 OK");
 		} finally {
 			isRunningLock.unlock();
 		}
+	}
+
+	public void doLogin() {
+		this.doLogin(null);
+	}
+
+	/**
+	 * 如果指定图片路径则从本地打开，仅用于测试
+	 * 
+	 * @author koqiui
+	 * @date 2019年3月31日 下午8:21:39
+	 * 
+	 * @param qrPath
+	 */
+	public void doLogin(String qrPath) {
+		if (core.isAlive()) {
+			logger.warn("已经登陆...");
+		}
+		//
+		Boolean result = this.tryToLogin();
+		while (result == null) {
+			logger.info("等待扫码确认登陆...");
+			SleepUtils.sleep(1000);
+			result = this.tryToLogin();
+		}
+		//
+		if (Boolean.TRUE.equals(result)) {
+			logger.info(("登陆成功."));
+		} else {
+			int tryTimes = 15;
+			for (int count = 0; count < tryTimes;) {
+				count++;
+				//
+				logger.info("获取UUID");
+				// 10*6秒
+				String uuid = null;
+				int uuidTimes = 6;
+				while ((uuid = this.getUuid(true)) == null && uuidTimes > 0) {
+					uuidTimes--;
+					logger.warn("10秒后重新获取uuid");
+					SleepUtils.sleep(10000);
+				}
+				//
+				if (uuid == null) {
+					if (count == tryTimes) {
+						logger.error("获取登陆uuid失败，登陆不了");
+						return;
+					}
+				} else {
+					if (qrPath == null) {
+						logger.info("请在浏览器中打开并扫码 " + this.getQrImageUrl(uuid));
+						core.setLastMessage("请在浏览器中打开并扫码 ");
+						break;
+					} else {
+						logger.info("获取登陆二维码图片");
+						if (this.getAndOpenQrImage(uuid, qrPath)) {
+							break;
+						}
+					}
+				}
+			}
+			//
+			this.doLogin(qrPath);
+		}
+		//
+
+		logger.info("初始化基本信息");
+		if (this.initBasicInfo()) {
+			// CommonTools.clearScreen();
+			logger.info(String.format("欢迎  %s", core.getNickName()));
+
+			logger.info("清除所有联系人信息和消息列表");
+			core.clearAllContactsAndMsgs();
+
+			logger.info("获取联系人信息");
+			this.fetchContacts();
+
+			logger.info("获取群好友及群好友列表");
+			this.fetchGroups();
+
+			logger.info("保存最新数据");
+			core.saveStoreData();
+
+			logger.info("启动心跳和消息检测");
+			this.startHeatbeat();
+
+			logger.info("开启微信状态通知");
+			this.initStatusNotify();
+		}
+
 	}
 
 	/**
@@ -131,7 +289,7 @@ public class WechatHelper {
 	 *            是否刷新
 	 * @return
 	 */
-	public String getUuid(boolean refresh) {
+	private String getUuid(boolean refresh) {
 		String retUuid = refresh ? null : core.getUuid();
 		if (retUuid == null) {
 			// 组装参数和URL
@@ -148,10 +306,30 @@ public class WechatHelper {
 				String regEx = "window.QRLogin.code = (\\d+); window.QRLogin.uuid = \"(\\S+?)\";";
 				Matcher matcher = CommonTools.getMatcher(regEx, result);
 				if (matcher.find()) {
-					if ((ResultEnum.SUCCESS.getCode().equals(matcher.group(1)))) {
+					String retCode = matcher.group(1);
+					if ((ResultEnum.SUCCESS.getCode().equals(retCode))) {
 						retUuid = matcher.group(2);
 						core.setUuid(retUuid);
 						logger.info("已刷新了 登陆uuid");
+						waitingLoginScan = true;
+					}
+				} else {
+					String regEx2 = "window.QRLogin.code = (\\d+); window.QRLogin.error = \"(\\S*?)\";";
+					matcher = CommonTools.getMatcher(regEx2, result);
+					if (matcher.find()) {
+						String message = null;
+						String retCode = matcher.group(1);
+						if (ResultEnum.WAIT_SCAN.getCode().equals(retCode)) {
+							message = ResultEnum.WAIT_SCAN.getMessage();
+							logger.info(message);
+							retUuid = core.getUuid();
+							waitingLoginScan = true;
+						} else if (ResultEnum.WAIT_CONFIRM.getCode().equals(retCode)) {
+							message = ResultEnum.WAIT_CONFIRM.getMessage();
+							logger.info(message);
+							retUuid = core.getUuid();
+							waitingLoginScan = true;
+						}
 					}
 				}
 			} catch (Exception e) {
@@ -169,7 +347,7 @@ public class WechatHelper {
 	 * @param uuid
 	 * @return
 	 */
-	public String getQrImageUrl(String uuid) {
+	private String getQrImageUrl(String uuid) {
 		if (uuid == null || uuid.trim().equals("")) {
 			uuid = this.getUuid(true);// 获取新的uuid
 		}
@@ -177,9 +355,20 @@ public class WechatHelper {
 	}
 
 	/**
+	 * 获取登陆uuid对应的二维码图片url
+	 * 
+	 * @param refresh
+	 *            是否刷新获取
+	 * @return
+	 */
+	public String getQrImageUrl(boolean refresh) {
+		return this.getQrImageUrl(refresh ? null : core.getUuid());
+	}
+
+	/**
 	 * 获取登陆uuid对应的二维码字节流数据
 	 */
-	public ImageBytes getQrImageBytes(String uuid) {
+	private ImageBytes getQrImageBytes(String uuid) {
 		try {
 			String qrUrl = getQrImageUrl(uuid);
 			if (qrUrl == null) {
@@ -188,6 +377,9 @@ public class WechatHelper {
 			HttpEntity entity = core.getMyHttpClient().doGet(qrUrl, null, true, null);
 			ImageBytes qrImageBytes = new ImageBytes();
 			qrImageBytes.data = EntityUtils.toByteArray(entity);
+			if (qrImageBytes.data == null || qrImageBytes.data.length < 1) {
+				logger.warn("获取的QrImage为空（无效）");
+			}
 			return qrImageBytes;
 		} catch (Exception e) {
 			logger.warn(e.getMessage());
@@ -198,8 +390,7 @@ public class WechatHelper {
 	/**
 	 * 获取并打开登陆二维码（用于测试/调试扫码登陆）
 	 */
-	@Deprecated
-	public boolean getAndOpenQrImage(String uuid, String qrPathDir) {
+	private boolean getAndOpenQrImage(String uuid, String qrPathDir) {
 		ImageBytes qrImageBytes = this.getQrImageBytes(uuid);
 		if (qrImageBytes == null) {
 			return false;
@@ -229,10 +420,16 @@ public class WechatHelper {
 	private ReentrantLock tryToLoginLock = new ReentrantLock();
 	private boolean tryToLoginFlag = false;
 
-	public String getPushLoginUuid() {
+	/** 延续性登陆uuid（只需在手机端确认即可） */
+	private String getPushLoginUuid() {
 		try {
-			String url = (String) core.getLoginInfo().get("url");
-			String wxuin = (String) core.getLoginInfo().get("wxuin");
+			Map<String, Object> loginInfo = core.getLoginInfo();
+			String url = (String) loginInfo.get("url");
+			String wxuin = (String) loginInfo.get("wxuin");
+			String deviceId = (String) loginInfo.get("deviceid");
+			if (deviceId == null) {
+				loginInfo.put("deviceid", this.createDeviceId());
+			}
 			if (url != null && wxuin != null) {
 				url = String.format(URLEnum.WEB_WX_PUSH_LOGIN.getUrl(), url, wxuin);
 				HttpEntity entity = core.getMyHttpClient().doGet(url, null, true, null);
@@ -248,6 +445,9 @@ public class WechatHelper {
 					return uuid;
 				} else if (RetCodeEnum.PARAM_ERROR.equals(retCodeEnum)) {
 					logger.warn(RetCodeEnum.PARAM_ERROR.getMessage());
+				} else if (RetCodeEnum.DEVICE_FAIL.equals(retCodeEnum)) {
+					logger.warn(RetCodeEnum.DEVICE_FAIL.getMessage());
+					loginInfo.put("deviceid", null);
 				} else {
 					logger.warn(resutJson.getString("msg"));
 				}
@@ -259,10 +459,12 @@ public class WechatHelper {
 		return null;
 	}
 
+	private boolean waitingLoginScan = false;
+
 	/**
 	 * 登陆
 	 */
-	public Boolean tryToLogin() {
+	private Boolean tryToLogin() {
 		tryToLoginLock.lock();
 		try {
 			if (tryToLoginFlag) {
@@ -271,14 +473,15 @@ public class WechatHelper {
 			tryToLoginFlag = true;
 			//
 			boolean isLoggedIn = false;
-			boolean waitingConfirm = false;
+
 			int checkInterval = 1000;
 			while (!isLoggedIn && isRunning) {
 				try {
-					if (!waitingConfirm) {
+					if (!waitingLoginScan) {
 						String uuid = this.getPushLoginUuid();
 						if (uuid == null) {
-							logger.warn("登陆已过期，需要重新登陆");
+							tryToLoginFlag = false;
+							waitingLoginScan = false;
 							return false;
 						} else {
 							logger.info("请在手机上点击 登陆 确认");
@@ -300,19 +503,21 @@ public class WechatHelper {
 						isLoggedIn = errMsg == null;
 						if (isLoggedIn) {
 							core.setAlive(isLoggedIn);
+							waitingLoginScan = false;
 						} else {
 							logger.warn(errMsg);
 						}
+
 						break;
 					} else if (ResultEnum.WAIT_SCAN.getCode().equals(status)) {
 						logger.info(ResultEnum.WAIT_SCAN.getMessage());
-						waitingConfirm = true;
+						waitingLoginScan = true;
 					} else if (ResultEnum.WAIT_CONFIRM.getCode().equals(status)) {
 						logger.info(ResultEnum.WAIT_CONFIRM.getMessage());
-						waitingConfirm = true;
+						waitingLoginScan = true;
 					} else if (ResultEnum.WAIT_TIMEOUT.getCode().equals(status)) {
 						logger.info(ResultEnum.WAIT_TIMEOUT.getMessage());
-						waitingConfirm = true;
+						waitingLoginScan = true;
 					} else {
 						break;
 					}
@@ -334,15 +539,13 @@ public class WechatHelper {
 	/**
 	 * web初始化
 	 */
-	public boolean initBasicInfo() {
+	private boolean initBasicInfo() {
 		if (!core.isAlive()) {
 			return false;
 		}
-		//
-		core.setLastNormalRetCodeTime(System.currentTimeMillis());
 		// 组装请求URL和参数
-		String url = String.format(URLEnum.INIT_URL.getUrl(), core.getLoginInfo().get(StorageLoginInfoEnum.url.getKey()), String.valueOf(System.currentTimeMillis() / 3158L),
-				core.getLoginInfo().get(StorageLoginInfoEnum.pass_ticket.getKey()));
+		Map<String, Object> loginInfo = core.getLoginInfo();
+		String url = String.format(URLEnum.INIT_URL.getUrl(), loginInfo.get(StorageLoginInfoEnum.url.getKey()), String.valueOf(System.currentTimeMillis() / 3158L), loginInfo.get(StorageLoginInfoEnum.pass_ticket.getKey()));
 
 		Map<String, Object> paramMap = core.newParamMap();
 
@@ -350,7 +553,7 @@ public class WechatHelper {
 		HttpEntity entity = core.getMyHttpClient().doPost(url, JSON.toJSONString(paramMap));
 		try {
 			String result = EntityUtils.toString(entity, Consts.UTF_8);
-			logger.info("------ webWxInit ------");
+			logger.info("------ initBasicInfo ------");
 			logger.info(result);
 			//
 			JSONObject obj = JSON.parseObject(result);
@@ -368,8 +571,8 @@ public class WechatHelper {
 			JSONObject user = obj.getJSONObject(StorageLoginInfoEnum.User.getKey());
 			if (user != null) {
 				JSONObject syncKey = obj.getJSONObject(StorageLoginInfoEnum.SyncKey.getKey());
-				core.getLoginInfo().put(StorageLoginInfoEnum.InviteStartCount.getKey(), obj.getInteger(StorageLoginInfoEnum.InviteStartCount.getKey()));
-				core.getLoginInfo().put(StorageLoginInfoEnum.SyncKey.getKey(), syncKey);
+				loginInfo.put(StorageLoginInfoEnum.InviteStartCount.getKey(), obj.getInteger(StorageLoginInfoEnum.InviteStartCount.getKey()));
+				loginInfo.put(StorageLoginInfoEnum.SyncKey.getKey(), syncKey);
 
 				JSONArray syncArray = syncKey.getJSONArray("List");
 				StringBuilder sb = new StringBuilder();
@@ -380,7 +583,7 @@ public class WechatHelper {
 				String synckey = sb.toString();
 
 				// 1_661706053|2_661706420|3_661706415|1000_1494151022
-				core.getLoginInfo().put(StorageLoginInfoEnum.synckey.getKey(), synckey.substring(0, synckey.length() - 1));// 1_656161336|2_656161626|3_656161313|11_656159955|13_656120033|201_1492273724|1000_1492265953|1001_1492250432|1004_1491805192
+				loginInfo.put(StorageLoginInfoEnum.synckey.getKey(), synckey.substring(0, synckey.length() - 1));// 1_656161336|2_656161626|3_656161313|11_656159955|13_656120033|201_1492273724|1000_1492265953|1001_1492250432|1004_1491805192
 				core.setUserName(user.getString("UserName"));
 				core.setNickName(user.getString("NickName"));
 				core.setUserSelf(obj.getJSONObject("User"));
@@ -399,9 +602,10 @@ public class WechatHelper {
 	/**
 	 * 微信状态通知
 	 */
-	public boolean initStatusNotify() {
+	private boolean initStatusNotify() {
 		// 组装请求URL和参数
-		String url = String.format(URLEnum.STATUS_NOTIFY_URL.getUrl(), core.getLoginInfo().get(StorageLoginInfoEnum.pass_ticket.getKey()));
+		Map<String, Object> loginInfo = core.getLoginInfo();
+		String url = String.format(URLEnum.STATUS_NOTIFY_URL.getUrl(), loginInfo.get(StorageLoginInfoEnum.pass_ticket.getKey()));
 
 		Map<String, Object> paramMap = core.newParamMap();
 		paramMap.put(StatusNotifyParamEnum.CODE.param(), StatusNotifyParamEnum.CODE.value());
@@ -451,75 +655,160 @@ public class WechatHelper {
 	}
 
 	/**
+	 * 接收消息，放入队列
+	 * 
+	 * @author https://github.com/yaphone
+	 * @date 2017年4月23日 下午2:30:48
+	 * @param msgList
+	 * @return
+	 */
+	private JSONArray filterWxMsg(JSONArray msgList) {
+		JSONArray retMsgList = new JSONArray();
+		for (int i = 0; i < msgList.size(); i++) {
+			JSONObject tmpMsg = new JSONObject();
+			JSONObject retMsg = msgList.getJSONObject(i);
+			retMsg.put("groupMsg", false);// 是否是群消息
+			String fromUserName = retMsg.getString("FromUserName");
+			String toUserName = retMsg.getString("ToUserName");
+			//
+			if (fromUserName.contains("@@") || toUserName.contains("@@")) { // 群聊消息
+				if (fromUserName.contains("@@") && !core.getGroupIdList().contains(fromUserName)) {
+					core.getGroupIdList().add(fromUserName);
+				} else if (toUserName.contains("@@") && !core.getGroupIdList().contains(toUserName)) {
+					core.getGroupIdList().add(toUserName);
+				}
+				// 群消息与普通消息不同的是在其消息体（Content）中会包含发送者id及":<br/>"消息，这里需要处理一下，去掉多余信息，只保留消息内容
+				if (retMsg.getString("Content").contains("<br/>")) {
+					String content = retMsg.getString("Content").substring(retMsg.getString("Content").indexOf("<br/>") + 5);
+					retMsg.put("Content", content);
+					retMsg.put("groupMsg", true);
+				}
+			} else {
+				CommonTools.msgFormatter(retMsg, "Content");
+			}
+			//
+			Integer tmpMsgType = retMsg.getInteger("MsgType");
+			if (tmpMsgType.equals(MsgTypeValueEnum.MSGTYPE_TEXT.getValue())) { // words
+				// 文本消息
+				if (retMsg.getString("Url").length() != 0) {
+					String regEx = "(.+?\\(.+?\\))";
+					Matcher matcher = CommonTools.getMatcher(regEx, retMsg.getString("Content"));
+					String data = "Map";
+					if (matcher.find()) {
+						data = matcher.group(1);
+					}
+					tmpMsg.put("Type", MsgTypeCodeEnum.MAP.getCode());
+					tmpMsg.put("Text", data);
+				} else {
+					tmpMsg.put("Type", MsgTypeCodeEnum.TEXT.getCode());
+					tmpMsg.put("Text", retMsg.getString("Content"));
+				}
+				retMsg.put("Type", tmpMsg.getString("Type"));
+				retMsg.put("Text", tmpMsg.getString("Text"));
+			} else if (tmpMsgType.equals(MsgTypeValueEnum.MSGTYPE_IMAGE.getValue()) || tmpMsgType.equals(MsgTypeValueEnum.MSGTYPE_EMOTICON.getValue())) { // 图片消息
+				retMsg.put("Type", MsgTypeCodeEnum.PIC.getCode());
+			} else if (tmpMsgType.equals(MsgTypeValueEnum.MSGTYPE_VOICE.getValue())) { // 语音消息
+				retMsg.put("Type", MsgTypeCodeEnum.VOICE.getCode());
+			} else if (tmpMsgType.equals(MsgTypeValueEnum.MSGTYPE_VERIFYMSG.getValue())) {// friends
+				// 好友确认消息
+				// MsgHelper.addFriend(core, userName, 3, ticket); // 确认添加好友
+				retMsg.put("Type", MsgTypeCodeEnum.VERIFYMSG.getCode());
+
+			} else if (tmpMsgType.equals(MsgTypeValueEnum.MSGTYPE_SHARECARD.getValue())) { // 共享名片
+				retMsg.put("Type", MsgTypeCodeEnum.NAMECARD.getCode());
+			} else if (tmpMsgType.equals(MsgTypeValueEnum.MSGTYPE_VIDEO.getValue()) || tmpMsgType.equals(MsgTypeValueEnum.MSGTYPE_MICROVIDEO.getValue())) {// viedo
+				retMsg.put("Type", MsgTypeCodeEnum.VIEDO.getCode());
+			} else if (tmpMsgType.equals(MsgTypeValueEnum.MSGTYPE_MEDIA.getValue())) { // 多媒体消息
+				retMsg.put("Type", MsgTypeCodeEnum.MEDIA.getCode());
+			} else if (tmpMsgType.equals(MsgTypeValueEnum.MSGTYPE_STATUSNOTIFY.getValue())) {// phone
+				// init
+				// 微信初始化消息
+				logger.info("---- ----" + MsgTypeValueEnum.MSGTYPE_STATUSNOTIFY.getName());
+				logger.info("");
+
+			} else if (tmpMsgType.equals(MsgTypeValueEnum.MSGTYPE_SYS.getValue())) {// 系统消息
+				retMsg.put("Type", MsgTypeCodeEnum.SYS.getCode());
+			} else if (tmpMsgType.equals(MsgTypeValueEnum.MSGTYPE_RECALLED.getValue())) { // 撤回消息
+
+			} else {
+				logger.info("Useless msg");
+			}
+			retMsgList.add(retMsg);
+			//
+			logger.info("收到一条来自 " + fromUserName + " 的 " + retMsg.getString("Type") + " 消息：");
+			logger.info(retMsg.toJSONString());
+		}
+		return retMsgList;
+	}
+
+	/**
 	 * 接收消息
 	 */
-	private Thread receivingThread = null;
+	private Thread heatbeatThead = null;
 
-	public void startReceiving() {
-		if (receivingThread != null && receivingThread.isAlive()) {
-			return;
+	private void stopHeatbeat() {
+		if (heatbeatThead != null && heatbeatThead.isAlive()) {
+			try {
+				heatbeatThead.interrupt();
+			} catch (Exception ex) {
+				logger.warn(ex.getMessage());
+			}
+			logger.info("心跳已停止");
 		}
-		//
-		receivingThread = new Thread(new Runnable() {
-			int retryCount = 0;
+	}
 
-			//
-			@Override
+	private void startHeatbeat() {
+		this.stopHeatbeat();
+		//
+		heatbeatThead = new Thread() {
 			public void run() {
 				while (isRunning) {
 					try {
-						SleepUtils.sleep(10);
+						SleepUtils.sleep(1000);
 						//
-						Map<String, String> resultMap = syncCheck();
-						logger.info("------ received ------");
-						logger.info(JSONObject.toJSONString(resultMap));
+						logger.info("------ heatbeat ------");
+						Map<String, String> resultMap = doSyncCheck();
 						String retcode = resultMap.get("retcode");
 						String selector = resultMap.get("selector");
+						String message = null;
 						if (retcode.equals(RetCodeEnum.UNKOWN.getCode())) {
-							logger.info(RetCodeEnum.UNKOWN.getMessage());
-							continue;
-						} else if (retcode.equals(RetCodeEnum.NOT_LOGIN_WARN.getCode())) { // 退出
-							logger.info(RetCodeEnum.NOT_LOGIN_WARN.getMessage());
+							logger.warn(RetCodeEnum.UNKOWN.getMessage());
+						} else if (retcode.equals(RetCodeEnum.NOT_LOGIN_WARN.getCode())) { // 未登录或已退出
+							message = RetCodeEnum.NOT_LOGIN_WARN.getMessage();
+							logger.info(message);
 							core.setAlive(false);
-							break;
+							core.setLastMessage(message);
 						} else if (retcode.equals(RetCodeEnum.LOGIN_OTHERWHERE.getCode())) { // 其它地方登陆
-							logger.info(RetCodeEnum.LOGIN_OTHERWHERE.getMessage());
+							message = RetCodeEnum.LOGIN_OTHERWHERE.getMessage();
+							logger.info(message);
 							core.setAlive(false);
-							break;
-						} else if (retcode.equals(RetCodeEnum.MOBILE_LOGIN_OUT.getCode())) { // 移动端退出
-							logger.info(RetCodeEnum.MOBILE_LOGIN_OUT.getMessage());
-							core.setAlive(false);
-							break;
+							core.setLastMessage(message);
+						} else if (retcode.equals(RetCodeEnum.INVALID_COOKIE.getCode())) { // 移动端退出
+							logger.warn(RetCodeEnum.INVALID_COOKIE.getMessage());
+							logger.warn(message);
 						} else if (retcode.equals(RetCodeEnum.SUCCESS.getCode())) {
-							core.setLastNormalRetCodeTime(System.currentTimeMillis()); // 最后收到正常报文时间
-							JSONObject msgObj = webWxSync();
-							if (selector.equals("2")) {
-								if (msgObj != null) {
-									try {
-										JSONArray msgList = new JSONArray();
-										msgList = msgObj.getJSONArray("AddMsgList");
-										msgList = MsgCenter.produceMsg(msgList);
-										for (int j = 0; j < msgList.size(); j++) {
-											BaseMsg baseMsg = JSON.toJavaObject(msgList.getJSONObject(j), BaseMsg.class);
-											core.getMsgList().add(baseMsg);
-										}
-									} catch (Exception e) {
-										logger.warn(e.getMessage());
+							JSONObject msgObj = pullSyncMsgs();
+							if (selector.equals("2")) {// 新的消息
+								try {
+									JSONArray msgList = new JSONArray();
+									msgList = msgObj.getJSONArray("AddMsgList");
+									msgList = filterWxMsg(msgList);
+									for (int j = 0; j < msgList.size(); j++) {
+										BaseMsg baseMsg = JSON.toJavaObject(msgList.getJSONObject(j), BaseMsg.class);
+										core.getMsgList().add(baseMsg);
 									}
+								} catch (Exception e) {
+									logger.warn(e.getMessage());
 								}
 							} else if (selector.equals("7")) {
-								webWxSync();
-							} else if (selector.equals("4")) {
-								continue;
-							} else if (selector.equals("3")) {
-								continue;
+								pullSyncMsgs();
 							} else if (selector.equals("6")) {
 								if (msgObj != null) {
 									try {
 										JSONArray msgList = new JSONArray();
 										msgList = msgObj.getJSONArray("AddMsgList");
 										JSONArray modContactList = msgObj.getJSONArray("ModContactList"); // 存在删除或者新增的好友信息
-										msgList = MsgCenter.produceMsg(msgList);
+										msgList = filterWxMsg(msgList);
 										for (int j = 0; j < msgList.size(); j++) {
 											JSONObject userInfo = modContactList.getJSONObject(j);
 											addWxMember(userInfo);
@@ -530,36 +819,27 @@ public class WechatHelper {
 								}
 							}
 						} else {
-							JSONObject obj = webWxSync();
-							logger.info(JSONObject.toJSONString(obj));
+							JSONObject obj = pullSyncMsgs();
+							logger.info("------ Others ------");
+							// logger.info(JSONObject.toJSONString(obj));
 						}
 					} catch (Exception e) {
 						logger.warn(e.getMessage());
-						//
-						retryCount += 1;
-						if (retryCount > core.getReceivingRetryCount()) {
-							retryCount = 0;
-							core.setAlive(false);
-						} else {
-							try {
-								Thread.sleep(1000);
-							} catch (InterruptedException e1) {
-								logger.warn(e.getMessage());
-							}
-						}
 					}
 				}
 			}
-		});
+		};
 		//
-		receivingThread.start();
+		heatbeatThead.start();
+		logger.info("心跳已开启");
 	}
 
 	/**
 	 * 获取微信联系人
 	 */
-	public void fetchContacts() {
-		String url = String.format(URLEnum.WEB_WX_GET_CONTACT.getUrl(), core.getLoginInfo().get(StorageLoginInfoEnum.url.getKey()));
+	private void fetchContacts() {
+		Map<String, Object> loginInfo = core.getLoginInfo();
+		String url = String.format(URLEnum.WEB_WX_GET_CONTACT.getUrl(), loginInfo.get(StorageLoginInfoEnum.url.getKey()));
 		Map<String, Object> paramMap = core.newParamMap();
 		HttpEntity entity = core.getMyHttpClient().doPost(url, JSON.toJSONString(paramMap));
 
@@ -612,8 +892,9 @@ public class WechatHelper {
 	/**
 	 * 获取群好友及群好友
 	 */
-	public void fetchGroups() {
-		String url = String.format(URLEnum.WEB_WX_BATCH_GET_CONTACT.getUrl(), core.getLoginInfo().get(StorageLoginInfoEnum.url.getKey()), new Date().getTime(), core.getLoginInfo().get(StorageLoginInfoEnum.pass_ticket.getKey()));
+	private void fetchGroups() {
+		Map<String, Object> loginInfo = core.getLoginInfo();
+		String url = String.format(URLEnum.WEB_WX_BATCH_GET_CONTACT.getUrl(), loginInfo.get(StorageLoginInfoEnum.url.getKey()), new Date().getTime(), loginInfo.get(StorageLoginInfoEnum.pass_ticket.getKey()));
 		Map<String, Object> paramMap = core.newParamMap();
 		paramMap.put("Count", core.getGroupIdList().size());
 		List<Map<String, String>> list = new ArrayList<Map<String, String>>();
@@ -663,6 +944,10 @@ public class WechatHelper {
 		return null;
 	}
 
+	private String createDeviceId() {
+		return "e" + String.valueOf(new Random().nextLong()).substring(1, 16);
+	}
+
 	/**
 	 * 处理登陆信息
 	 *
@@ -675,11 +960,11 @@ public class WechatHelper {
 		String regEx = "window.redirect_uri=\"(\\S+)\";";
 		Matcher matcher = CommonTools.getMatcher(regEx, loginContent);
 		if (matcher.find()) {
+			Map<String, Object> loginInfo = core.getLoginInfo();
 			String originalUrl = matcher.group(1);
 			String url = originalUrl.substring(0, originalUrl.lastIndexOf('/')); // https://wx2.qq.com/cgi-bin/mmwebwx-bin
-			core.getLoginInfo().put("url", url);
-			Map<String, List<String>> possibleUrlMap = this.getPossibleUrlMap();
-			Iterator<Entry<String, List<String>>> iterator = possibleUrlMap.entrySet().iterator();
+			loginInfo.put("url", url);
+			Iterator<Entry<String, List<String>>> iterator = wxDomainUrlMap.entrySet().iterator();
 			Map.Entry<String, List<String>> entry;
 			String fileUrl;
 			String syncUrl;
@@ -688,24 +973,24 @@ public class WechatHelper {
 				String indexUrl = entry.getKey();
 				fileUrl = "https://" + entry.getValue().get(0) + "/cgi-bin/mmwebwx-bin";
 				syncUrl = "https://" + entry.getValue().get(1) + "/cgi-bin/mmwebwx-bin";
-				if (core.getLoginInfo().get("url").toString().contains(indexUrl)) {
+				if (loginInfo.get("url").toString().contains(indexUrl)) {
 					core.setIndexUrl(indexUrl);
-					core.getLoginInfo().put("fileUrl", fileUrl);
-					core.getLoginInfo().put("syncUrl", syncUrl);
+					loginInfo.put("fileUrl", fileUrl);
+					loginInfo.put("syncUrl", syncUrl);
 					break;
 				}
 			}
-			if (core.getLoginInfo().get("fileUrl") == null && core.getLoginInfo().get("syncUrl") == null) {
-				core.getLoginInfo().put("fileUrl", url);
-				core.getLoginInfo().put("syncUrl", url);
+			if (loginInfo.get("fileUrl") == null && loginInfo.get("syncUrl") == null) {
+				loginInfo.put("fileUrl", url);
+				loginInfo.put("syncUrl", url);
 			}
 			// 尽量重用deviceid
-			String deviceid = (String) core.getLoginInfo().get(StorageLoginInfoEnum.deviceid.getKey());
+			String deviceid = (String) loginInfo.get(StorageLoginInfoEnum.deviceid.getKey());
 			if (deviceid == null) {
-				deviceid = "e" + String.valueOf(new Random().nextLong()).substring(1, 16);
+				deviceid = this.createDeviceId();
 			}
-			core.getLoginInfo().put("deviceid", deviceid); // 生成15位随机数
-			core.getLoginInfo().put("BaseRequest", new ArrayList<String>());
+			loginInfo.put("deviceid", deviceid); // 生成15位随机数
+			loginInfo.put("BaseRequest", new ArrayList<String>());
 			String text = "";
 
 			try {
@@ -724,91 +1009,73 @@ public class WechatHelper {
 			}
 			Document doc = CommonTools.xmlParser(text);
 			if (doc != null) {
-				core.getLoginInfo().put(StorageLoginInfoEnum.skey.getKey(), doc.getElementsByTagName(StorageLoginInfoEnum.skey.getKey()).item(0).getFirstChild().getNodeValue());
-				core.getLoginInfo().put(StorageLoginInfoEnum.wxsid.getKey(), doc.getElementsByTagName(StorageLoginInfoEnum.wxsid.getKey()).item(0).getFirstChild().getNodeValue());
-				core.getLoginInfo().put(StorageLoginInfoEnum.wxuin.getKey(), doc.getElementsByTagName(StorageLoginInfoEnum.wxuin.getKey()).item(0).getFirstChild().getNodeValue());
-				core.getLoginInfo().put(StorageLoginInfoEnum.pass_ticket.getKey(), doc.getElementsByTagName(StorageLoginInfoEnum.pass_ticket.getKey()).item(0).getFirstChild().getNodeValue());
+				loginInfo.put(StorageLoginInfoEnum.skey.getKey(), doc.getElementsByTagName(StorageLoginInfoEnum.skey.getKey()).item(0).getFirstChild().getNodeValue());
+				loginInfo.put(StorageLoginInfoEnum.wxsid.getKey(), doc.getElementsByTagName(StorageLoginInfoEnum.wxsid.getKey()).item(0).getFirstChild().getNodeValue());
+				loginInfo.put(StorageLoginInfoEnum.wxuin.getKey(), doc.getElementsByTagName(StorageLoginInfoEnum.wxuin.getKey()).item(0).getFirstChild().getNodeValue());
+				loginInfo.put(StorageLoginInfoEnum.pass_ticket.getKey(), doc.getElementsByTagName(StorageLoginInfoEnum.pass_ticket.getKey()).item(0).getFirstChild().getNodeValue());
 			}
 			return null;
 		}
 		return "登陆失败";
 	}
 
-	private Map<String, List<String>> getPossibleUrlMap() {
-		Map<String, List<String>> possibleUrlMap = new HashMap<String, List<String>>();
-		possibleUrlMap.put("wx.qq.com", new ArrayList<String>() {
-			/**
-			 * 
-			 */
-			private static final long serialVersionUID = 1L;
+	/**
+	 * 检查（是否有新消息）
+	 * 
+	 * @author https://github.com/yaphone
+	 * @date 2017年4月16日 上午11:11:34
+	 * @return
+	 * 
+	 */
+	private Map<String, String> doSyncCheck() {
+		Map<String, String> resultMap = new HashMap<String, String>();
+		// 组装请求URL和参数
+		Map<String, Object> loginInfo = core.getLoginInfo();
+		String url = loginInfo.get(StorageLoginInfoEnum.syncUrl.getKey()) + URLEnum.SYNC_CHECK_URL.getUrl();
+		List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
+		for (BaseParamEnum baseRequest : BaseParamEnum.values()) {
+			params.add(new BasicNameValuePair(baseRequest.param().toLowerCase(), loginInfo.get(baseRequest.value()).toString()));
+		}
+		params.add(new BasicNameValuePair("r", String.valueOf(new Date().getTime())));
+		params.add(new BasicNameValuePair("synckey", (String) loginInfo.get("synckey")));
+		params.add(new BasicNameValuePair("_", String.valueOf(new Date().getTime())));
 
-			{
-				add("file.wx.qq.com");
-				add("webpush.wx.qq.com");
+		try {
+			HttpEntity entity = core.getMyHttpClient().doGet(url, params, true, null);
+			if (entity == null) {
+				resultMap.put("retcode", "9999");
+				resultMap.put("selector", "9999");
+			} else {
+				String text = EntityUtils.toString(entity);
+				String regEx = "window.synccheck=\\{retcode:\"(\\d+)\",selector:\"(\\d+)\"\\}";
+				Matcher matcher = CommonTools.getMatcher(regEx, text);
+				if (!matcher.find() || matcher.group(1).equals("2")) {
+					logger.warn(String.format("意外的同步检查结果: %s", text));
+				} else {
+					resultMap.put("retcode", matcher.group(1));
+					resultMap.put("selector", matcher.group(2));
+				}
 			}
-		});
-
-		possibleUrlMap.put("wx2.qq.com", new ArrayList<String>() {
-			/**
-			 * 
-			 */
-			private static final long serialVersionUID = 1L;
-
-			{
-				add("file.wx2.qq.com");
-				add("webpush.wx2.qq.com");
-			}
-		});
-		possibleUrlMap.put("wx8.qq.com", new ArrayList<String>() {
-			/**
-			 * 
-			 */
-			private static final long serialVersionUID = 1L;
-
-			{
-				add("file.wx8.qq.com");
-				add("webpush.wx8.qq.com");
-			}
-		});
-
-		possibleUrlMap.put("web2.wechat.com", new ArrayList<String>() {
-			/**
-			 * 
-			 */
-			private static final long serialVersionUID = 1L;
-
-			{
-				add("file.web2.wechat.com");
-				add("webpush.web2.wechat.com");
-			}
-		});
-		possibleUrlMap.put("wechat.com", new ArrayList<String>() {
-			/**
-			 * 
-			 */
-			private static final long serialVersionUID = 1L;
-
-			{
-				add("file.web.wechat.com");
-				add("webpush.web.wechat.com");
-			}
-		});
-		return possibleUrlMap;
+		} catch (Exception e) {
+			logger.warn(e.getMessage());
+		}
+		return resultMap;
 	}
 
 	/**
-	 * 同步消息 sync the messages
+	 * 同步拉取消息
 	 * 
 	 * @author https://github.com/yaphone
 	 * @date 2017年5月12日 上午12:24:55
 	 * @return
 	 */
-	private JSONObject webWxSync() {
+	private JSONObject pullSyncMsgs() {
 		JSONObject result = null;
-		String url = String.format(URLEnum.WEB_WX_SYNC_URL.getUrl(), core.getLoginInfo().get(StorageLoginInfoEnum.url.getKey()), core.getLoginInfo().get(StorageLoginInfoEnum.wxsid.getKey()),
-				core.getLoginInfo().get(StorageLoginInfoEnum.skey.getKey()), core.getLoginInfo().get(StorageLoginInfoEnum.pass_ticket.getKey()));
+		Map<String, Object> loginInfo = core.getLoginInfo();
+		String url = String.format(URLEnum.WEB_WX_SYNC_URL.getUrl(), loginInfo.get(StorageLoginInfoEnum.url.getKey()), loginInfo.get(StorageLoginInfoEnum.wxsid.getKey()), loginInfo.get(StorageLoginInfoEnum.skey.getKey()),
+				loginInfo.get(StorageLoginInfoEnum.pass_ticket.getKey()));
 		Map<String, Object> paramMap = core.newParamMap();
-		paramMap.put(StorageLoginInfoEnum.SyncKey.getKey(), core.getLoginInfo().get(StorageLoginInfoEnum.SyncKey.getKey()));
+		paramMap.put(StorageLoginInfoEnum.SyncKey.getKey(), loginInfo.get(StorageLoginInfoEnum.SyncKey.getKey()));
 		paramMap.put("rr", -new Date().getTime() / 1000);
 		try {
 			String paramStr = JSON.toJSONString(paramMap);
@@ -820,61 +1087,19 @@ public class WechatHelper {
 			} else {
 				result = obj;
 				//
-				core.getLoginInfo().put(StorageLoginInfoEnum.SyncKey.getKey(), obj.getJSONObject("SyncCheckKey"));
+				loginInfo.put(StorageLoginInfoEnum.SyncKey.getKey(), obj.getJSONObject("SyncCheckKey"));
 				JSONArray syncArray = obj.getJSONObject(StorageLoginInfoEnum.SyncKey.getKey()).getJSONArray("List");
 				StringBuilder sb = new StringBuilder();
 				for (int i = 0; i < syncArray.size(); i++) {
 					sb.append(syncArray.getJSONObject(i).getString("Key") + "_" + syncArray.getJSONObject(i).getString("Val") + "|");
 				}
 				String synckey = sb.toString();
-				core.getLoginInfo().put(StorageLoginInfoEnum.synckey.getKey(), synckey.substring(0, synckey.length() - 1));// 1_656161336|2_656161626|3_656161313|11_656159955|13_656120033|201_1492273724|1000_1492265953|1001_1492250432|1004_1491805192
+				loginInfo.put(StorageLoginInfoEnum.synckey.getKey(), synckey.substring(0, synckey.length() - 1));// 1_656161336|2_656161626|3_656161313|11_656159955|13_656120033|201_1492273724|1000_1492265953|1001_1492250432|1004_1491805192
 			}
 		} catch (Exception e) {
 			logger.warn(e.getMessage());
 		}
 		return result;
-
-	}
-
-	/**
-	 * 检查是否有新消息 check whether there's a message
-	 * 
-	 * @author https://github.com/yaphone
-	 * @date 2017年4月16日 上午11:11:34
-	 * @return
-	 * 
-	 */
-	private Map<String, String> syncCheck() {
-		Map<String, String> resultMap = new HashMap<String, String>();
-		// 组装请求URL和参数
-		String url = core.getLoginInfo().get(StorageLoginInfoEnum.syncUrl.getKey()) + URLEnum.SYNC_CHECK_URL.getUrl();
-		List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
-		for (BaseParamEnum baseRequest : BaseParamEnum.values()) {
-			params.add(new BasicNameValuePair(baseRequest.param().toLowerCase(), core.getLoginInfo().get(baseRequest.value()).toString()));
-		}
-		params.add(new BasicNameValuePair("r", String.valueOf(new Date().getTime())));
-		params.add(new BasicNameValuePair("synckey", (String) core.getLoginInfo().get("synckey")));
-		params.add(new BasicNameValuePair("_", String.valueOf(new Date().getTime())));
-		try {
-			HttpEntity entity = core.getMyHttpClient().doGet(url, params, true, null);
-			if (entity == null) {
-				resultMap.put("retcode", "9999");
-				resultMap.put("selector", "9999");
-				return resultMap;
-			}
-			String text = EntityUtils.toString(entity);
-			String regEx = "window.synccheck=\\{retcode:\"(\\d+)\",selector:\"(\\d+)\"\\}";
-			Matcher matcher = CommonTools.getMatcher(regEx, text);
-			if (!matcher.find() || matcher.group(1).equals("2")) {
-				logger.warn(String.format("Unexpected sync check result: %s", text));
-			} else {
-				resultMap.put("retcode", matcher.group(1));
-				resultMap.put("selector", matcher.group(2));
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		return resultMap;
 	}
 
 	/**
@@ -890,6 +1115,35 @@ public class WechatHelper {
 			return rs[0];
 		}
 		return "";
+	}
+
+	public boolean doLogout() {
+		boolean result = false;
+		//
+		this.stopHeatbeat();
+		//
+		if (core.isAlive()) {
+			Map<String, Object> loginInfo = core.getLoginInfo();
+			String url = String.format(URLEnum.WEB_WX_LOGOUT.getUrl(), loginInfo.get(StorageLoginInfoEnum.url.getKey()));
+			List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
+			params.add(new BasicNameValuePair("redirect", "1"));
+			params.add(new BasicNameValuePair("type", "1"));
+			params.add(new BasicNameValuePair("skey", (String) loginInfo.get(StorageLoginInfoEnum.skey.getKey())));
+			try {
+				HttpEntity entity = core.getMyHttpClient().doGet(url, params, false, null);
+				String text = EntityUtils.toString(entity, Consts.UTF_8); // 无消息
+				logger.info(text);
+				core.setAlive(false);
+				//
+				result = true;
+			} catch (Exception e) {
+				logger.warn(e.getMessage());
+			}
+		}
+		//
+		core.reset();
+		//
+		return result;
 	}
 
 }

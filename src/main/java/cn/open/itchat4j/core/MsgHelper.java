@@ -1,4 +1,4 @@
-package cn.open.itchat4j.api;
+package cn.open.itchat4j.core;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -26,7 +26,6 @@ import com.alibaba.fastjson.JSONObject;
 
 import cn.open.itchat4j.beans.BaseMsg;
 import cn.open.itchat4j.beans.RecommendInfo;
-import cn.open.itchat4j.core.Core;
 import cn.open.itchat4j.enums.StorageLoginInfoEnum;
 import cn.open.itchat4j.enums.URLEnum;
 import cn.open.itchat4j.enums.VerifyFriendEnum;
@@ -40,8 +39,8 @@ import cn.open.itchat4j.utils.Config;
  * @version 1.0
  *
  */
-public class MessageTools {
-	private static Logger logger = LoggerFactory.getLogger(MessageTools.class);
+public class MsgHelper {
+	private static Logger logger = LoggerFactory.getLogger(MsgHelper.class);
 	private static Core core = Core.getInstance();
 
 	/**
@@ -76,26 +75,6 @@ public class MessageTools {
 	}
 
 	/**
-	 * 根据NickName发送文本消息
-	 * 
-	 * @author https://github.com/yaphone
-	 * @date 2017年5月4日 下午11:17:38
-	 * @param text
-	 * @param nickName
-	 */
-	public static boolean sendMsgByNickName(String text, String nickName) {
-		if (nickName != null) {
-			String toUserName = WechatTools.getUserNameByNickName(nickName);
-			if (toUserName != null) {
-				webWxSendMsg(1, text, toUserName);
-				return true;
-			}
-		}
-		return false;
-
-	}
-
-	/**
 	 * 消息发送
 	 * 
 	 * @author https://github.com/yaphone
@@ -105,7 +84,8 @@ public class MessageTools {
 	 * @param toUserName
 	 */
 	public static void webWxSendMsg(int msgType, String content, String toUserName) {
-		String url = String.format(URLEnum.WEB_WX_SEND_MSG.getUrl(), core.getLoginInfo().get("url"));
+		Map<String, Object> loginInfo = core.getLoginInfo();
+		String url = String.format(URLEnum.WEB_WX_SEND_MSG.getUrl(), loginInfo.get("url"));
 		Map<String, Object> msgMap = new HashMap<String, Object>();
 		msgMap.put("Type", msgType);
 		msgMap.put("Content", content);
@@ -139,7 +119,8 @@ public class MessageTools {
 			logger.info("file is not exist");
 			return null;
 		}
-		String url = String.format(URLEnum.WEB_WX_UPLOAD_MEDIA.getUrl(), core.getLoginInfo().get("fileUrl"));
+		Map<String, Object> loginInfo = core.getLoginInfo();
+		String url = String.format(URLEnum.WEB_WX_UPLOAD_MEDIA.getUrl(), loginInfo.get("fileUrl"));
 		String mimeType = new MimetypesFileTypeMap().getContentType(f);
 		String mediaType = "";
 		if (mimeType == null) {
@@ -149,7 +130,7 @@ public class MessageTools {
 		}
 		String lastModifieDate = new SimpleDateFormat("yyyy MM dd HH:mm:ss").format(new Date());
 		long fileSize = f.length();
-		String passTicket = (String) core.getLoginInfo().get("pass_ticket");
+		String passTicket = (String) loginInfo.get("pass_ticket");
 		String clientMediaId = String.valueOf(new Date().getTime()) + String.valueOf(new Random().nextLong()).substring(0, 4);
 		String webwxDataTicket = core.getMyHttpClient().getCookie("webwx_data_ticket");
 		if (webwxDataTicket == null) {
@@ -193,22 +174,6 @@ public class MessageTools {
 	}
 
 	/**
-	 * 根据NickName发送图片消息
-	 * 
-	 * @author https://github.com/yaphone
-	 * @date 2017年5月7日 下午10:32:45
-	 * @param nackName
-	 * @return
-	 */
-	public static boolean sendPicMsgByNickName(String nickName, String filePath) {
-		String toUserName = WechatTools.getUserNameByNickName(nickName);
-		if (toUserName != null) {
-			return sendPicMsgByUserId(toUserName, filePath);
-		}
-		return false;
-	}
-
-	/**
 	 * 根据用户id发送图片消息
 	 * 
 	 * @author https://github.com/yaphone
@@ -236,7 +201,8 @@ public class MessageTools {
 	 * @return
 	 */
 	private static boolean webWxSendMsgImg(String userId, String mediaId) {
-		String url = String.format("%s/webwxsendmsgimg?fun=async&f=json&pass_ticket=%s", core.getLoginInfo().get("url"), core.getLoginInfo().get("pass_ticket"));
+		Map<String, Object> loginInfo = core.getLoginInfo();
+		String url = String.format("%s/webwxsendmsgimg?fun=async&f=json&pass_ticket=%s", loginInfo.get("url"), loginInfo.get("pass_ticket"));
 		Map<String, Object> msgMap = new HashMap<String, Object>();
 		msgMap.put("Type", 3);
 		msgMap.put("MediaId", mediaId);
@@ -291,23 +257,6 @@ public class MessageTools {
 	}
 
 	/**
-	 * 根据用户昵称发送文件消息
-	 * 
-	 * @author https://github.com/yaphone
-	 * @date 2017年5月10日 下午10:59:27
-	 * @param nickName
-	 * @param filePath
-	 * @return
-	 */
-	public static boolean sendFileMsgByNickName(String nickName, String filePath) {
-		String toUserName = WechatTools.getUserNameByNickName(nickName);
-		if (toUserName != null) {
-			return sendFileMsgByUserId(toUserName, filePath);
-		}
-		return false;
-	}
-
-	/**
 	 * 内部调用
 	 * 
 	 * @author https://github.com/yaphone
@@ -317,7 +266,8 @@ public class MessageTools {
 	 * @return
 	 */
 	private static boolean webWxSendAppMsg(String userId, Map<String, String> data) {
-		String url = String.format("%s/webwxsendappmsg?fun=async&f=json&pass_ticket=%s", core.getLoginInfo().get("url"), core.getLoginInfo().get("pass_ticket"));
+		Map<String, Object> loginInfo = core.getLoginInfo();
+		String url = String.format("%s/webwxsendappmsg?fun=async&f=json&pass_ticket=%s", loginInfo.get("url"), loginInfo.get("pass_ticket"));
 		String clientMsgId = String.valueOf(new Date().getTime()) + String.valueOf(new Random().nextLong()).substring(1, 5);
 		String content = "<appmsg appid='wxeb7ec651dd0aefa9' sdkver=''><title>" + data.get("title") + "</title><des></des><action></action><type>6</type><content></content><url></url><lowurl></lowurl>" + "<appattach><totallen>"
 				+ data.get("totallen") + "</totallen><attachid>" + data.get("attachid") + "</attachid><fileext>" + data.get("fileext") + "</fileext></appattach><extinfo></extinfo></appmsg>";
@@ -331,7 +281,7 @@ public class MessageTools {
 		/*
 		 * Map<String, Object> paramMap = new HashMap<String, Object>();
 		 * 
-		 * @SuppressWarnings("unchecked") Map<String, Map<String, String>> baseRequestMap = (Map<String, Map<String, String>>) core.getLoginInfo() .get("baseRequest"); paramMap.put("BaseRequest",
+		 * @SuppressWarnings("unchecked") Map<String, Map<String, String>> baseRequestMap = (Map<String, Map<String, String>>) loginInfo .get("baseRequest"); paramMap.put("BaseRequest",
 		 * baseRequestMap.get("BaseRequest"));
 		 */
 
@@ -370,8 +320,8 @@ public class MessageTools {
 		// 更新好友列表
 		// TODO 此处需要更新好友列表
 		// core.getContactList().add(msg.getJSONObject("RecommendInfo"));
-
-		String url = String.format(URLEnum.WEB_WX_VERIFYUSER.getUrl(), core.getLoginInfo().get("url"), String.valueOf(System.currentTimeMillis() / 3158L), core.getLoginInfo().get("pass_ticket"));
+		Map<String, Object> loginInfo = core.getLoginInfo();
+		String url = String.format(URLEnum.WEB_WX_VERIFYUSER.getUrl(), loginInfo.get("url"), String.valueOf(System.currentTimeMillis() / 3158L), loginInfo.get("pass_ticket"));
 
 		List<Map<String, Object>> verifyUserList = new ArrayList<Map<String, Object>>();
 		Map<String, Object> verifyUser = new HashMap<String, Object>();
@@ -390,7 +340,7 @@ public class MessageTools {
 		body.put("VerifyContent", "");
 		body.put("SceneListCount", 1);
 		body.put("SceneList", sceneList);
-		body.put("skey", core.getLoginInfo().get(StorageLoginInfoEnum.skey.getKey()));
+		body.put("skey", loginInfo.get(StorageLoginInfoEnum.skey.getKey()));
 
 		String result = null;
 		try {
@@ -407,6 +357,39 @@ public class MessageTools {
 
 		logger.info(result);
 
+	}
+
+	/**
+	 * 
+	 * 根据用户昵称设置备注名称
+	 * 
+	 * @date 2017年5月27日 上午12:21:40
+	 * @param userName
+	 * @param remName
+	 */
+	public static boolean setUserRemarkNameByNickName(String userName, String remarkName) {
+		Map<String, Object> loginInfo = core.getLoginInfo();
+		String url = String.format(URLEnum.WEB_WX_REMARKNAME.getUrl(), loginInfo.get("url"), loginInfo.get(StorageLoginInfoEnum.pass_ticket.getKey()));
+		Map<String, Object> msgMap = new HashMap<String, Object>();
+		Map<String, Object> msgMap_BaseRequest = new HashMap<String, Object>();
+		msgMap.put("CmdId", 2);
+		msgMap.put("UserName", userName);
+		msgMap.put("RemarkName", remarkName);
+		msgMap_BaseRequest.put("Uin", loginInfo.get(StorageLoginInfoEnum.wxuin.getKey()));
+		msgMap_BaseRequest.put("Sid", loginInfo.get(StorageLoginInfoEnum.wxsid.getKey()));
+		msgMap_BaseRequest.put("Skey", loginInfo.get(StorageLoginInfoEnum.skey.getKey()));
+		msgMap_BaseRequest.put("DeviceID", loginInfo.get(StorageLoginInfoEnum.deviceid.getKey()));
+		msgMap.put("BaseRequest", msgMap_BaseRequest);
+		try {
+			String paramStr = JSON.toJSONString(msgMap);
+			HttpEntity entity = core.getMyHttpClient().doPost(url, paramStr);
+			// String result = EntityUtils.toString(entity, Consts.UTF_8);
+			logger.info("修改了" + userName + "的备注名：" + remarkName);
+			return true;
+		} catch (Exception e) {
+			logger.error(e.getMessage());
+			return false;
+		}
 	}
 
 }

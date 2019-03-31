@@ -55,6 +55,11 @@ public class MemDataStore implements CoreDataStore {
 	public void set(String key, Object value) {
 		dataMap.put(key, value);
 	}
+	
+	@Override
+	public void del(String key) {
+		dataMap.remove(key);
+	}
 
 	@Override
 	public boolean save() {
@@ -65,5 +70,7 @@ public class MemDataStore implements CoreDataStore {
 	public Map<String, Object> getAll() {
 		return this.dataMap;
 	}
+
+	
 
 }

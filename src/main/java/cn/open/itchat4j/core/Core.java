@@ -13,10 +13,10 @@ import org.apache.http.client.CookieStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.annotation.JSONField;
 
-import cn.open.itchat4j.WechatHelper;
 import cn.open.itchat4j.beans.BaseMsg;
 import cn.open.itchat4j.enums.params.BaseParamEnum;
 import cn.open.itchat4j.utils.MyHttpClient;
@@ -27,7 +27,7 @@ import cn.open.itchat4j.utils.MyHttpClient;
  * @author https://github.com/yaphone
  * @date 创建时间：2017年4月23日 下午2:33:56
  * @version 1.0
- *
+ * 
  */
 public class Core implements Serializable, CookieStoreHolder {
 	private static final long serialVersionUID = 1L;
@@ -43,15 +43,11 @@ public class Core implements Serializable, CookieStoreHolder {
 	//
 	private CoreDataStore dataStore = new MemDataStore();
 
-	private void initDataStore() {
-		Map<String, Object> initValues = new HashMap<String, Object>() {
+	private Map<String, Object> getInitDataStoreValues() {
+		return new HashMap<String, Object>() {
 			private static final long serialVersionUID = 1L;
 			//
 			{
-				this.put("useHotReload", false);
-				this.put("receivingRetryCount", Integer.valueOf(5));
-				this.put("lastNormalRetCodeTime", Long.valueOf(0));// 最后一次收到正常retcode的时间，秒为单位
-				//
 				this.put("isAlive", false);
 				this.put("loginInfo", new HashMap<String, Object>(0));
 				//
@@ -62,11 +58,13 @@ public class Core implements Serializable, CookieStoreHolder {
 				this.put("groupIdList", new ArrayList<String>(0));// 群聊id列表
 				//
 				this.put("publicUserIdList", new ArrayList<String>(0));// 公众号／服务号 id列表
-				this.put("specialUserIdList", new ArrayList<JSONObject>(0));// 特殊账号 id列表
+				this.put("specialUserIdList", new ArrayList<String>(0));// 特殊账号 id列表
 			}
 		};
-		//
-		this.dataStore.init(initValues);
+	}
+
+	private void initDataStore() {
+		this.dataStore.init(this.getInitDataStoreValues());
 	}
 
 	private Core() {
@@ -126,15 +124,11 @@ public class Core implements Serializable, CookieStoreHolder {
 		}
 	}
 
-	public CoreDataStore getDataStore() {
-		return this.dataStore;
-	}
-
 	public boolean saveStoreData() {
+		this.dataStore.set("dataVersionTs", System.currentTimeMillis());
 		return this.dataStore.save();
 	}
 
-	// TODO 是否能正常反序列化 ??
 	@JSONField(serialize = false)
 	private transient Queue<BaseMsg> msgList = new ConcurrentLinkedQueue<BaseMsg>();
 
@@ -148,44 +142,14 @@ public class Core implements Serializable, CookieStoreHolder {
 			{
 				Map<String, String> map = new HashMap<String, String>();
 				for (BaseParamEnum baseRequest : BaseParamEnum.values()) {
-					map.put(baseRequest.param(), getLoginInfo().get(baseRequest.value()).toString());
+					Object value = getLoginInfo().get(baseRequest.value());
+					String valueStr = value == null ? null : value.toString();
+					map.put(baseRequest.param(), valueStr);
 				}
 				//
 				this.put("BaseRequest", map);
 			}
 		};
-	}
-
-	public boolean isUseHotReload() {
-		return dataStore.get("useHotReload");
-	}
-
-	public void setUseHotReload(boolean useHotReload) {
-		dataStore.set("useHotReload", useHotReload);
-	}
-
-	public String getHotReloadDir() {
-		return dataStore.get("hotReloadDir");
-	}
-
-	public void setHotReloadDir(String hotReloadDir) {
-		dataStore.set("hotReloadDir", hotReloadDir);
-	}
-
-	public int getReceivingRetryCount() {
-		return dataStore.get("receivingRetryCount");
-	}
-
-	public void setReceivingRetryCount(int receivingRetryCount) {
-		dataStore.set("receivingRetryCount", receivingRetryCount);
-	}
-
-	public synchronized long getLastNormalRetCodeTime() {
-		return dataStore.get("lastNormalRetCodeTime");
-	}
-
-	public synchronized void setLastNormalRetCodeTime(long lastNormalRetCodeTime) {
-		dataStore.set("lastNormalRetCodeTime", lastNormalRetCodeTime);
 	}
 
 	public MyHttpClient getMyHttpClient() {
@@ -201,6 +165,52 @@ public class Core implements Serializable, CookieStoreHolder {
 
 	public void setAlive(boolean alive) {
 		dataStore.set("isAlive", alive);
+	}
+
+	public void reset() {
+		this.msgList.clear();
+		//
+		dataStore.clear();
+		dataStore.save();
+		//
+		this.initialized = false;
+		this.doInit();
+	}
+
+	/**
+	 * 清除所有联系人信息和消息列表
+	 * 
+	 * @author koqiui
+	 * @date 2019年3月31日 下午7:52:08
+	 *
+	 */
+	@SuppressWarnings("unchecked")
+	public void clearAllContactsAndMsgs() {
+		// "member" + id
+		// "nickName" + id
+		List<String> allMemberIds = this.getMemberIdList();
+		for (String memeberId : allMemberIds) {
+			this.dataStore.del(this.makeMemberKey(memeberId));
+			this.dataStore.del(this.makeNickNameKey(memeberId));
+		}
+		//
+		Map<String, Object> initValues = this.getInitDataStoreValues();
+		this.setMemberCount(0);
+		this.setMemberIdList((List<String>) initValues.get("memberIdList"));
+		this.setContactIdList((List<String>) initValues.get("contactIdList"));
+		this.setGroupIdList((List<String>) initValues.get("groupIdList"));
+		this.setPublicUserIdList((List<String>) initValues.get("publicUserIdList"));
+		this.setSpecialUserIdList((List<String>) initValues.get("specialUserIdList"));
+		//
+		this.msgList.clear();
+	}
+
+	public String getLastMessage() {
+		return dataStore.get("lastMessage");
+	}
+
+	public void setLastMessage(String message) {
+		dataStore.set("lastMessage", message);
 	}
 
 	public String getUuid() {
@@ -259,8 +269,12 @@ public class Core implements Serializable, CookieStoreHolder {
 		dataStore.set("memberCount", memberCount);
 	}
 
+	private String makeMemberKey(String id) {
+		return "member" + id;
+	}
+
 	public void setMember(String id, JSONObject member) {
-		dataStore.set("member" + id, member);
+		dataStore.set(this.makeMemberKey(id), member);
 		//
 		if (!this.getMemberIdList().contains(id)) {
 			this.getMemberIdList().add(id);
@@ -268,15 +282,19 @@ public class Core implements Serializable, CookieStoreHolder {
 	}
 
 	public JSONObject getMember(String id) {
-		return dataStore.get("member" + id);
+		return dataStore.get(this.makeMemberKey(id));
+	}
+
+	private String makeNickNameKey(String id) {
+		return "nickName" + id;
 	}
 
 	public void setNickName(String id, String nickName) {
-		dataStore.set("nickName" + id, nickName);
+		dataStore.set(this.makeNickNameKey(id), nickName);
 	}
 
 	public String getNickName(String id) {
-		return dataStore.get("nickName" + id);
+		return dataStore.get(this.makeNickNameKey(id));
 	}
 
 	/** 好友+群聊+公众号+特殊账号 id列表 */
@@ -322,6 +340,18 @@ public class Core implements Serializable, CookieStoreHolder {
 			retList.add(this.getMember(id));
 		}
 		return retList;
+	}
+
+	/**
+	 * 根据groupIdList返回群成员列表
+	 * 
+	 * @date 2017年6月13日 下午11:12:31
+	 * @param groupId
+	 * @return
+	 */
+	public JSONArray getMemberListByGroupId(String groupId) {
+		JSONObject member = this.getMember(groupId);
+		return (JSONArray) (member == null ? null : member.get("MemberList"));
 	}
 
 	/** 公众号／服务号 id列表 */
