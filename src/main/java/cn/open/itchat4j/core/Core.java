@@ -152,6 +152,24 @@ public class Core implements Serializable, CookieStoreHolder {
 		};
 	}
 
+	// 成员变更时间戳
+	private transient long lastDataChngTs = System.currentTimeMillis();
+	private transient long lastDataSaveTs = lastDataChngTs;
+
+	/**
+	 * 数据是否有变动（以便定时持久化）
+	 * 
+	 * @return
+	 */
+	public boolean hasDataChanges() {
+		return this.lastDataChngTs > this.lastDataSaveTs;
+	}
+
+	/** 刷新数据变动保存时间 */
+	public void setDataSavedTs() {
+		this.lastDataSaveTs = System.currentTimeMillis();
+	}
+
 	public MyHttpClient getMyHttpClient() {
 		if (myHttpClient == null) {
 			throw new IllegalStateException("确保先调用了 doInit(...)方法");
@@ -186,19 +204,24 @@ public class Core implements Serializable, CookieStoreHolder {
 	 */
 	@SuppressWarnings("unchecked")
 	public void clearAllContactsAndMsgs() {
-		// "member" + id
-		// "nickName" + id
 		List<String> allMemberIds = this.getMemberIdList();
-		for (String memeberId : allMemberIds) {
-			this.dataStore.del(this.makeMemberKey(memeberId));
-			this.dataStore.del(this.makeNickNameKey(memeberId));
+		List<String> groupIdList = this.getGroupIdList();
+		String memeberId = null;
+		for (int i = allMemberIds.size() - 1; i >= 0; i--) {
+			memeberId = allMemberIds.get(i);
+			if (groupIdList.indexOf(memeberId) == -1) {
+				this.dataStore.del(this.makeMemberKey(memeberId));
+				this.dataStore.del(this.makeNickNameKey(memeberId));
+				//
+				allMemberIds.remove(i);
+			}
 		}
 		//
 		Map<String, Object> initValues = this.getInitDataStoreValues();
 		this.setMemberCount(0);
 		this.setMemberIdList((List<String>) initValues.get("memberIdList"));
 		this.setContactIdList((List<String>) initValues.get("contactIdList"));
-		this.setGroupIdList((List<String>) initValues.get("groupIdList"));
+		// this.setGroupIdList((List<String>) initValues.get("groupIdList"));//群组不好获取
 		this.setPublicUserIdList((List<String>) initValues.get("publicUserIdList"));
 		this.setSpecialUserIdList((List<String>) initValues.get("specialUserIdList"));
 		//
@@ -211,6 +234,8 @@ public class Core implements Serializable, CookieStoreHolder {
 
 	public void setLastMessage(String message) {
 		dataStore.set("lastMessage", message);
+		//
+		this.lastDataChngTs = System.currentTimeMillis();
 	}
 
 	public String getUuid() {
@@ -219,6 +244,8 @@ public class Core implements Serializable, CookieStoreHolder {
 
 	public void setUuid(String uuid) {
 		dataStore.set("uuid", uuid);
+		//
+		this.lastDataChngTs = System.currentTimeMillis();
 	}
 
 	public Map<String, Object> getLoginInfo() {
@@ -227,6 +254,8 @@ public class Core implements Serializable, CookieStoreHolder {
 
 	public void setLoginInfo(Map<String, Object> loginInfo) {
 		dataStore.set("loginInfo", loginInfo);
+		//
+		this.lastDataChngTs = System.currentTimeMillis();
 	}
 
 	public String getIndexUrl() {
@@ -235,6 +264,8 @@ public class Core implements Serializable, CookieStoreHolder {
 
 	public void setIndexUrl(String indexUrl) {
 		dataStore.set("indexUrl", indexUrl);
+		//
+		this.lastDataChngTs = System.currentTimeMillis();
 	}
 
 	public String getUserName() {
@@ -243,6 +274,8 @@ public class Core implements Serializable, CookieStoreHolder {
 
 	public void setUserName(String userName) {
 		dataStore.set("userName", userName);
+		//
+		this.lastDataChngTs = System.currentTimeMillis();
 	}
 
 	public String getNickName() {
@@ -251,6 +284,8 @@ public class Core implements Serializable, CookieStoreHolder {
 
 	public void setNickName(String nickName) {
 		dataStore.set("nickName", nickName);
+		//
+		this.lastDataChngTs = System.currentTimeMillis();
 	}
 
 	public JSONObject getUserSelf() {
@@ -259,6 +294,8 @@ public class Core implements Serializable, CookieStoreHolder {
 
 	public void setUserSelf(JSONObject userSelf) {
 		dataStore.set("userSelf", userSelf);
+		//
+		this.lastDataChngTs = System.currentTimeMillis();
 	}
 
 	public int getMemberCount() {
@@ -267,6 +304,8 @@ public class Core implements Serializable, CookieStoreHolder {
 
 	public void setMemberCount(int memberCount) {
 		dataStore.set("memberCount", memberCount);
+		//
+		this.lastDataChngTs = System.currentTimeMillis();
 	}
 
 	private String makeMemberKey(String id) {
@@ -276,9 +315,7 @@ public class Core implements Serializable, CookieStoreHolder {
 	public void setMember(String id, JSONObject member) {
 		dataStore.set(this.makeMemberKey(id), member);
 		//
-		if (!this.getMemberIdList().contains(id)) {
-			this.getMemberIdList().add(id);
-		}
+		this.addMemberId(id);
 	}
 
 	public JSONObject getMember(String id) {
@@ -298,21 +335,45 @@ public class Core implements Serializable, CookieStoreHolder {
 	}
 
 	/** 好友+群聊+公众号+特殊账号 id列表 */
-	public List<String> getMemberIdList() {
+	private List<String> getMemberIdList() {
 		return dataStore.get("memberIdList");
+	}
+
+	public boolean addMemberId(String id) {
+		List<String> theIdList = this.getMemberIdList();
+		if (!theIdList.contains(id)) {
+			theIdList.add(id);
+			this.setMemberIdList(theIdList);
+			return true;
+		}
+		return false;
 	}
 
 	public void setMemberIdList(List<String> memberIdList) {
 		dataStore.set("memberIdList", memberIdList);
+		//
+		this.lastDataChngTs = System.currentTimeMillis();
 	}
 
 	/** 好友id列表 */
-	public List<String> getContactIdList() {
+	private List<String> getContactIdList() {
 		return dataStore.get("contactIdList");
+	}
+
+	public boolean addContactId(String id) {
+		List<String> theIdList = this.getContactIdList();
+		if (!theIdList.contains(id)) {
+			theIdList.add(id);
+			this.setContactIdList(theIdList);
+			return true;
+		}
+		return false;
 	}
 
 	public void setContactIdList(List<String> contactIdList) {
 		dataStore.set("contactIdList", contactIdList);
+		//
+		this.lastDataChngTs = System.currentTimeMillis();
 	}
 
 	public List<JSONObject> getContactList() {
@@ -324,13 +385,42 @@ public class Core implements Serializable, CookieStoreHolder {
 		return retList;
 	}
 
-	/** 群聊id列表 */
+	private transient long lastGroupChngTs = System.currentTimeMillis();
+	private transient long lastGroupSyncTs = lastGroupChngTs;
+
+	/** 是否有没有同步的群组（因为群组比较特别只有点进去才能得到通知，才能拿到userNmae，还拿不到nickName） */
+	public boolean hasNoneSyncGroups() {
+		return lastGroupChngTs > lastGroupSyncTs;
+	}
+
+	/** 刷新群组数据同步时间 */
+	public void setLastSyncGroupTs() {
+		this.lastGroupSyncTs = System.currentTimeMillis();
+	}
+
+	/** 群聊id列表 注意不要在返回的数据上修改（不能直到数据变更） */
+	@Deprecated
 	public List<String> getGroupIdList() {
 		return dataStore.get("groupIdList");
 	}
 
+	public boolean addGroupId(String id) {
+		List<String> theIdList = this.getGroupIdList();
+		if (!theIdList.contains(id)) {
+			theIdList.add(id);
+			this.setGroupIdList(theIdList);
+			//
+			this.lastGroupChngTs = System.currentTimeMillis();
+			//
+			return true;
+		}
+		return false;
+	}
+
 	public void setGroupIdList(List<String> groupIdList) {
 		dataStore.set("groupIdList", groupIdList);
+		//
+		this.lastDataChngTs = System.currentTimeMillis();
 	}
 
 	public List<JSONObject> getGroupList() {
@@ -355,12 +445,24 @@ public class Core implements Serializable, CookieStoreHolder {
 	}
 
 	/** 公众号／服务号 id列表 */
-	public List<String> getPublicUserIdList() {
+	private List<String> getPublicUserIdList() {
 		return dataStore.get("publicUserIdList");
+	}
+
+	public boolean addPublicUserId(String id) {
+		List<String> theIdList = this.getPublicUserIdList();
+		if (!theIdList.contains(id)) {
+			theIdList.add(id);
+			this.setPublicUserIdList(theIdList);
+			return true;
+		}
+		return false;
 	}
 
 	public void setPublicUserIdList(List<String> publicUserIdList) {
 		dataStore.set("publicUserIdList", publicUserIdList);
+		//
+		this.lastDataChngTs = System.currentTimeMillis();
 	}
 
 	public List<JSONObject> getPublicUserList() {
@@ -373,12 +475,24 @@ public class Core implements Serializable, CookieStoreHolder {
 	}
 
 	/** 特殊账号 id列表 */
-	public List<String> getSpecialUserIdList() {
+	private List<String> getSpecialUserIdList() {
 		return dataStore.get("specialUserIdList");
+	}
+
+	public boolean addSpecialUserId(String id) {
+		List<String> theIdList = this.getSpecialUserIdList();
+		if (!theIdList.contains(id)) {
+			theIdList.add(id);
+			this.setSpecialUserIdList(theIdList);
+			return true;
+		}
+		return false;
 	}
 
 	public void setSpecialUserIdList(List<String> specialUserIdList) {
 		dataStore.set("specialUserIdList", specialUserIdList);
+		//
+		this.lastDataChngTs = System.currentTimeMillis();
 	}
 
 	public List<JSONObject> getSpecialUserList() {
