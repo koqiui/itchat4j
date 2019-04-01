@@ -1335,4 +1335,5 @@ public class WechatHelper {
 	public List<JSONObject> getGroupList() {
 		return core.getGroupList();
 	}
+
 }
