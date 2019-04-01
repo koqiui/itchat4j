@@ -448,7 +448,6 @@ public class Core implements Serializable, CookieStoreHolder {
 	}
 
 	/** 群聊id列表 注意不要在返回的数据上修改（不能直到数据变更） */
-	@Deprecated
 	public List<String> getGroupIdList() {
 		return dataStore.get("groupIdList");
 	}
