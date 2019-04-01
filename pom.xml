@@ -1,14 +1,35 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>cn.zhouyafeng</groupId>
+	<groupId>cn.open</groupId>
 	<artifactId>itchat4j</artifactId>
-	<version>1.1.0</version>
+	<version>2.0.0</version>
 	<packaging>jar</packaging>
+
+	<description>
+		itchat4j 改造版
+		-------------------------------
+		1、公开包名、简化包结构、命名重构（主要类：WechatHelper）
+		2、支持自定义数据存储(提供了CoreDataStore的实现： 内存 MemDataStore 和 文件 存储FileDataStore)和加载
+		3、支持hot reload（自动）、数据定期检查和保存、减少接口方法、支持web端应用
+		4、支持按（用户类型和）nickName 获取 userName（因为每次登陆userName都不同）
+		5、支持事件通知（CoreStateListener：onUserOnline, onUserOffline, onDataChanged, onUuidRefreshed）
+		
+		主要参考：
+			itchat4jdemo下的 itchat4jtest.demo.demo1.DemoClient
+			itchat4j 下的 Wechat（客户端演示用）, WechatHelper
+	</description>
 
 
 	<name>itchat4j</name>
 	<url>http://maven.apache.org</url>
+
+	<developers>
+		<developer>
+			<name>koqiui</name>
+			<email>koqiui@163.com</email>
+		</developer>
+	</developers>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -38,21 +59,21 @@
 		<dependency>
 			<groupId>com.alibaba</groupId>
 			<artifactId>fastjson</artifactId>
-			<version>1.2.31</version>
+			<version>1.2.12</version>
 		</dependency>
 
 		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
 		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-lang3</artifactId>
-			<version>3.0</version>
+			<version>3.5</version>
 		</dependency>
 
 		<!-- emoji -->
 		<dependency>
 			<groupId>com.vdurmont</groupId>
 			<artifactId>emoji-java</artifactId>
-			<version>3.2.0</version>
+			<version>4.0.0</version>
 		</dependency>
 
 		<!-- https://mvnrepository.com/artifact/javax.activation/activation -->
@@ -73,24 +94,24 @@
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-api</artifactId>
-			<version>1.6.6</version>
+			<version>1.7.22</version>
 		</dependency>
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-log4j12</artifactId>
-			<version>1.6.6</version>
+			<version>1.7.22</version>
 		</dependency>
 		<dependency>
 			<groupId>log4j</groupId>
 			<artifactId>log4j</artifactId>
-			<version>1.2.16</version>
+			<version>1.2.17</version>
 		</dependency>
 
 		<!-- https://mvnrepository.com/artifact/com.squareup.okhttp3/okhttp -->
 		<dependency>
 			<groupId>com.squareup.okhttp3</groupId>
 			<artifactId>okhttp</artifactId>
-			<version>3.8.0</version>
+			<version>3.5.0</version>
 		</dependency>
 
 
@@ -137,10 +158,7 @@
 					</execution>
 				</executions>
 				<configuration>
-					<descriptorRefs>
-						<descriptorRef>jar-with-dependencies</descriptorRef>
-						<descriptorRef>src</descriptorRef>
-					</descriptorRefs>
+					<!-- <descriptorRefs> <descriptorRef>jar-with-dependencies</descriptorRef> <descriptorRef>src</descriptorRef> </descriptorRefs> -->
 				</configuration>
 			</plugin>
 

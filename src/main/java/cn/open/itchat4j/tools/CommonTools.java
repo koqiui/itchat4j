@@ -1,11 +1,7 @@
 package cn.open.itchat4j.tools;
 
 import java.io.StringReader;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -31,6 +27,10 @@ import cn.open.itchat4j.utils.Config;
  *
  */
 public class CommonTools {
+
+	public static boolean formatEmojiAsAlias = false;
+	// 不可解析的emoji替代字符
+	public static String unparsibleEmojiReplacement = null;
 
 	public static boolean printQr(String qrPath) {
 		Runtime runtime = Runtime.getRuntime();
@@ -114,54 +114,6 @@ public class CommonTools {
 		return doc;
 	}
 
-	public static JSONObject structFriendInfo(JSONObject userObj) {
-		Map<String, Object> friendInfoTemplate = new HashMap<String, Object>();
-		friendInfoTemplate.put("UserName", "");
-		friendInfoTemplate.put("City", "");
-		friendInfoTemplate.put("DisplayName", "");
-		friendInfoTemplate.put("PYQuanPin", "");
-		friendInfoTemplate.put("RemarkPYInitial", "");
-		friendInfoTemplate.put("Province", "");
-		friendInfoTemplate.put("KeyWord", "");
-		friendInfoTemplate.put("RemarkName", "");
-		friendInfoTemplate.put("PYInitial", "");
-		friendInfoTemplate.put("EncryChatRoomId", "");
-		friendInfoTemplate.put("Alias", "");
-		friendInfoTemplate.put("Signature", "");
-		friendInfoTemplate.put("NickName", "");
-		friendInfoTemplate.put("RemarkPYQuanPin", "");
-		friendInfoTemplate.put("HeadImgUrl", "");
-
-		friendInfoTemplate.put("UniFriend", 0);
-		friendInfoTemplate.put("Sex", 0);
-		friendInfoTemplate.put("AppAccountFlag", 0);
-		friendInfoTemplate.put("VerifyFlag", 0);
-		friendInfoTemplate.put("ChatRoomId", 0);
-		friendInfoTemplate.put("HideInputBarFlag", 0);
-		friendInfoTemplate.put("AttrStatus", 0);
-		friendInfoTemplate.put("SnsFlag", 0);
-		friendInfoTemplate.put("MemberCount", 0);
-		friendInfoTemplate.put("OwnerUin", 0);
-		friendInfoTemplate.put("ContactFlag", 0);
-		friendInfoTemplate.put("Uin", 0);
-		friendInfoTemplate.put("StarFriend", 0);
-		friendInfoTemplate.put("Statues", 0);
-
-		friendInfoTemplate.put("MemberList", new ArrayList<Object>());
-
-		JSONObject ret = new JSONObject();
-		Set<String> keySet = friendInfoTemplate.keySet();
-		for (String key : keySet) {
-			if (userObj.containsKey(key)) {
-				ret.put(key, userObj.get(key));
-			} else {
-				ret.put(key, friendInfoTemplate.get(key));
-			}
-		}
-
-		return ret;
-	}
-
 	public static String getSynckey(JSONObject obj) {
 		JSONArray obj2 = obj.getJSONArray("List");
 		StringBuilder sb = new StringBuilder();
@@ -184,25 +136,41 @@ public class CommonTools {
 		return ret;
 	}
 
-	/**
-	 * 处理emoji表情
-	 * 
-	 * @author https://github.com/yaphone
-	 * @date 2017年4月23日 下午2:39:04
-	 * @param d
-	 * @param k
-	 */
-	public static void emojiFormatter(JSONObject d, String k) {
-		Matcher matcher = getMatcher("<span class=\"emoji emoji(.{1,10})\"></span>", d.getString(k));
+	//
+	public static String parseEmoji(String content) {
+		Matcher matcher = getMatcher("<span class=\"emoji emoji(.+?)\"></span>", content);
 		StringBuilder sb = new StringBuilder();
-		String content = d.getString(k);
 		int lastStart = 0;
 		while (matcher.find()) {
 			String str = matcher.group(1);
-			if (str.length() == 6) {
+			if (str.length() == 6 || str.length() == 10) {
+				str = unparsibleEmojiReplacement == null ? '#' + str + '#' : unparsibleEmojiReplacement;
+			} else {
+				str = "&#x" + str + ";";
+			}
+			String tmp = content.substring(lastStart, matcher.start());
+			sb.append(tmp + str);
+			lastStart = matcher.end();
+		}
+		if (lastStart < content.length()) {
+			sb.append(content.substring(lastStart));
+		}
+		if (sb.length() != 0) {
+			return EmojiParser.parseToUnicode(sb.toString());
+		} else {
+			return content;
+		}
+	}
 
-			} else if (str.length() == 10) {
+	public static String parseEmojiAsAlias(String content) {
+		Matcher matcher = getMatcher("<span class=\"emoji emoji(.+?)\"></span>", content);
+		StringBuilder sb = new StringBuilder();
 
+		int lastStart = 0;
+		while (matcher.find()) {
+			String str = matcher.group(1);
+			if (str.length() == 6 || str.length() == 10) {
+				str = unparsibleEmojiReplacement == null ? '#' + str + '#' : unparsibleEmojiReplacement;
 			} else {
 				str = "&#x" + str + ";";
 				String tmp = content.substring(lastStart, matcher.start());
@@ -214,11 +182,34 @@ public class CommonTools {
 			sb.append(content.substring(lastStart));
 		}
 		if (sb.length() != 0) {
-			d.put(k, EmojiParser.parseToUnicode(sb.toString()));
+			return EmojiParser.parseToAliases(EmojiParser.parseToUnicode(sb.toString()));
 		} else {
-			d.put(k, content);
+			return content;
 		}
+	}
 
+	/**
+	 * 处理emoji表情成alias
+	 * 
+	 * @param d
+	 * @param k
+	 */
+	public static void filterMsgEmojiAsAlias(JSONObject d, String k) {
+		String content = d.getString(k);
+		d.put(k, parseEmojiAsAlias(content));
+	}
+
+	/**
+	 * 处理emoji表情
+	 * 
+	 * @author https://github.com/yaphone
+	 * @date 2017年4月23日 下午2:39:04
+	 * @param d
+	 * @param k
+	 */
+	public static void filterMsgEmoji(JSONObject d, String k) {
+		String content = d.getString(k);
+		d.put(k, parseEmoji(content));
 	}
 
 	/**
@@ -229,12 +220,25 @@ public class CommonTools {
 	 * @param d
 	 * @param k
 	 */
-	public static void msgFormatter(JSONObject d, String k) {
-		d.put(k, d.getString(k).replace("<br/>", "\n"));
-		emojiFormatter(d, k);
+	public static void filterMsgEmojiEx(JSONObject d, String k, boolean formatEmoji) {
+		String content = d.getString(k);
+		content = content.replace("&amp;", "&");
+		content = content.replace("<br/>", "\n");
+		d.put(k, content);
+		if (formatEmoji) {
+			if (formatEmojiAsAlias) {
+				filterMsgEmojiAsAlias(d, k);
+			} else {
+				filterMsgEmoji(d, k);
+			}
+		}
 		// TODO 与emoji表情有部分兼容问题，目前暂未处理解码处理 d.put(k,
 		// StringEscapeUtils.unescapeHtml4(d.getString(k)));
 
+	}
+
+	public static void filterMsgEmojiEx(JSONObject d, String k) {
+		filterMsgEmojiEx(d, k, true);
 	}
 
 }

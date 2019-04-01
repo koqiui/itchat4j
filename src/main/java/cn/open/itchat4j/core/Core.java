@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.http.client.CookieStore;
+import org.apache.http.impl.client.BasicCookieStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,6 +19,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.annotation.JSONField;
 
 import cn.open.itchat4j.beans.BaseMsg;
+import cn.open.itchat4j.enums.MsgUserType;
 import cn.open.itchat4j.enums.params.BaseParamEnum;
 import cn.open.itchat4j.utils.MyHttpClient;
 
@@ -48,7 +50,8 @@ public class Core implements Serializable, CookieStoreHolder {
 			private static final long serialVersionUID = 1L;
 			//
 			{
-				this.put("isAlive", false);
+				this.put("cookieStore", new BasicCookieStore());
+				//
 				this.put("loginInfo", new HashMap<String, Object>(0));
 				//
 				this.put("memberCount", Integer.valueOf(0));
@@ -72,7 +75,7 @@ public class Core implements Serializable, CookieStoreHolder {
 	}
 
 	@Override
-	public void saveCookieStore(CookieStore cookieStore) {
+	public void syncCookieStore(CookieStore cookieStore) {
 		this.dataStore.set("cookieStore", cookieStore);
 	}
 
@@ -89,6 +92,20 @@ public class Core implements Serializable, CookieStoreHolder {
 	private transient ReentrantLock myHttpClientLock = new ReentrantLock();
 	@JSONField(serialize = false)
 	private transient MyHttpClient myHttpClient;
+
+	private String nodeName = "default";
+
+	public void setNodeName(String nodeName) {
+		this.nodeName = nodeName;
+	}
+
+	private CoreStateListener stateListener;
+
+	public void setStateListener(CoreStateListener stateListener) {
+		this.stateListener = stateListener;
+	}
+
+	private transient boolean alive = false;
 
 	private transient boolean initialized = false;
 
@@ -115,7 +132,7 @@ public class Core implements Serializable, CookieStoreHolder {
 			} finally {
 				myHttpClientLock.unlock();
 			}
-			// 重置为当前时间
+			//
 			this.setAlive(false);
 			//
 			logger.info("Core.doInit OK .");
@@ -124,9 +141,26 @@ public class Core implements Serializable, CookieStoreHolder {
 		}
 	}
 
+	private long lastDataSaveTs = 0L;
+	// 数据变更时间戳
+	private transient long lastDataChngTs = System.currentTimeMillis();
+
+	// 数据是否有变动（以便定时持久化）
+	public boolean hasDataChanges() {
+		return this.lastDataChngTs > this.lastDataSaveTs;
+	}
+
 	public boolean saveStoreData() {
-		this.dataStore.set("dataVersionTs", System.currentTimeMillis());
-		return this.dataStore.save();
+		this.lastDataSaveTs = System.currentTimeMillis();
+		this.dataStore.set("lastDataSaveTs", lastDataSaveTs);
+		//
+		boolean result = this.dataStore.save();
+		//
+		if (this.stateListener != null) {
+			this.stateListener.onDataChanged(lastDataSaveTs);
+		}
+		//
+		return result;
 	}
 
 	@JSONField(serialize = false)
@@ -152,24 +186,6 @@ public class Core implements Serializable, CookieStoreHolder {
 		};
 	}
 
-	// 成员变更时间戳
-	private transient long lastDataChngTs = System.currentTimeMillis();
-	private transient long lastDataSaveTs = lastDataChngTs;
-
-	/**
-	 * 数据是否有变动（以便定时持久化）
-	 * 
-	 * @return
-	 */
-	public boolean hasDataChanges() {
-		return this.lastDataChngTs > this.lastDataSaveTs;
-	}
-
-	/** 刷新数据变动保存时间 */
-	public void setDataSavedTs() {
-		this.lastDataSaveTs = System.currentTimeMillis();
-	}
-
 	public MyHttpClient getMyHttpClient() {
 		if (myHttpClient == null) {
 			throw new IllegalStateException("确保先调用了 doInit(...)方法");
@@ -178,11 +194,21 @@ public class Core implements Serializable, CookieStoreHolder {
 	}
 
 	public boolean isAlive() {
-		return dataStore.get("isAlive");
+		return this.alive;
 	}
 
 	public void setAlive(boolean alive) {
-		dataStore.set("isAlive", alive);
+		if (alive != this.alive) {
+			this.alive = alive;
+			//
+			if (this.stateListener != null) {
+				if (alive) {
+					this.stateListener.onUserOnline(this.nodeName);
+				} else {
+					this.stateListener.onUserOffline(this.nodeName);
+				}
+			}
+		}
 	}
 
 	public void reset() {
@@ -205,23 +231,26 @@ public class Core implements Serializable, CookieStoreHolder {
 	@SuppressWarnings("unchecked")
 	public void clearAllContactsAndMsgs() {
 		List<String> allMemberIds = this.getMemberIdList();
-		List<String> groupIdList = this.getGroupIdList();
-		String memeberId = null;
+		String memeberId = null, nickName = null;
+		int[] allUserTypes = MsgUserType.getValues();
 		for (int i = allMemberIds.size() - 1; i >= 0; i--) {
 			memeberId = allMemberIds.get(i);
-			if (groupIdList.indexOf(memeberId) == -1) {
-				this.dataStore.del(this.makeMemberKey(memeberId));
-				this.dataStore.del(this.makeNickNameKey(memeberId));
-				//
-				allMemberIds.remove(i);
+			this.dataStore.del(this.makeMemberKey(memeberId));
+			nickName = this.getNickName(memeberId);
+			// userName => nickName
+			this.dataStore.del(this.makeKeyForNickName(memeberId));
+			// nickName => userName
+			for (int x = 0; x < allUserTypes.length; x++) {
+				this.dataStore.del(this.makeKeyForUserName(allUserTypes[x], nickName));
 			}
+			allMemberIds.remove(i);
 		}
 		//
 		Map<String, Object> initValues = this.getInitDataStoreValues();
 		this.setMemberCount(0);
 		this.setMemberIdList((List<String>) initValues.get("memberIdList"));
 		this.setContactIdList((List<String>) initValues.get("contactIdList"));
-		// this.setGroupIdList((List<String>) initValues.get("groupIdList"));//群组不好获取
+		this.setGroupIdList((List<String>) initValues.get("groupIdList"));// 群组不好获取
 		this.setPublicUserIdList((List<String>) initValues.get("publicUserIdList"));
 		this.setSpecialUserIdList((List<String>) initValues.get("specialUserIdList"));
 		//
@@ -243,9 +272,16 @@ public class Core implements Serializable, CookieStoreHolder {
 	}
 
 	public void setUuid(String uuid) {
+		String lastUuid = this.getUuid();
 		dataStore.set("uuid", uuid);
 		//
 		this.lastDataChngTs = System.currentTimeMillis();
+		//
+		if (uuid != null && !uuid.equals(lastUuid)) {
+			if (this.stateListener != null) {
+				this.stateListener.onUuidRefreshed();
+			}
+		}
 	}
 
 	public Map<String, Object> getLoginInfo() {
@@ -308,30 +344,43 @@ public class Core implements Serializable, CookieStoreHolder {
 		this.lastDataChngTs = System.currentTimeMillis();
 	}
 
-	private String makeMemberKey(String id) {
-		return "member" + id;
+	private String makeMemberKey(String userName) {
+		return "member" + userName;
 	}
 
-	public void setMember(String id, JSONObject member) {
-		dataStore.set(this.makeMemberKey(id), member);
+	public void setMember(String userName, JSONObject member) {
+		dataStore.set(this.makeMemberKey(userName), member);
 		//
-		this.addMemberId(id);
+		this.addMemberId(userName);
 	}
 
-	public JSONObject getMember(String id) {
-		return dataStore.get(this.makeMemberKey(id));
+	public JSONObject getMember(String userName) {
+		return dataStore.get(this.makeMemberKey(userName));
 	}
 
-	private String makeNickNameKey(String id) {
-		return "nickName" + id;
+	// userName => nickName
+	private String makeKeyForNickName(String userName) {
+		return "nickName" + userName;
 	}
 
-	public void setNickName(String id, String nickName) {
-		dataStore.set(this.makeNickNameKey(id), nickName);
+	// nickName => userName
+	private String makeKeyForUserName(int userType, String nickName) {
+		return "userName$" + userType + "$" + nickName;
 	}
 
-	public String getNickName(String id) {
-		return dataStore.get(this.makeNickNameKey(id));
+	public void setNickName(int userType, String userName, String nickName) {
+		if (nickName != null && !nickName.trim().equals("")) {
+			dataStore.set(this.makeKeyForNickName(userName), nickName);
+			dataStore.set(this.makeKeyForUserName(userType, nickName), userName);
+		}
+	}
+
+	public String getNickName(String userName) {
+		return dataStore.get(this.makeKeyForNickName(userName));
+	}
+
+	public String getUserName(int userType, String nickName) {
+		return dataStore.get(this.makeKeyForUserName(userType, nickName));
 	}
 
 	/** 好友+群聊+公众号+特殊账号 id列表 */
@@ -339,10 +388,10 @@ public class Core implements Serializable, CookieStoreHolder {
 		return dataStore.get("memberIdList");
 	}
 
-	public boolean addMemberId(String id) {
+	public boolean addMemberId(String userName) {
 		List<String> theIdList = this.getMemberIdList();
-		if (!theIdList.contains(id)) {
-			theIdList.add(id);
+		if (!theIdList.contains(userName)) {
+			theIdList.add(userName);
 			this.setMemberIdList(theIdList);
 			return true;
 		}
@@ -360,10 +409,10 @@ public class Core implements Serializable, CookieStoreHolder {
 		return dataStore.get("contactIdList");
 	}
 
-	public boolean addContactId(String id) {
+	public boolean addContactId(String userName) {
 		List<String> theIdList = this.getContactIdList();
-		if (!theIdList.contains(id)) {
-			theIdList.add(id);
+		if (!theIdList.contains(userName)) {
+			theIdList.add(userName);
 			this.setContactIdList(theIdList);
 			return true;
 		}
@@ -404,10 +453,10 @@ public class Core implements Serializable, CookieStoreHolder {
 		return dataStore.get("groupIdList");
 	}
 
-	public boolean addGroupId(String id) {
+	public boolean addGroupId(String userName) {
 		List<String> theIdList = this.getGroupIdList();
-		if (!theIdList.contains(id)) {
-			theIdList.add(id);
+		if (!theIdList.contains(userName)) {
+			theIdList.add(userName);
 			this.setGroupIdList(theIdList);
 			//
 			this.lastGroupChngTs = System.currentTimeMillis();
@@ -439,8 +488,8 @@ public class Core implements Serializable, CookieStoreHolder {
 	 * @param groupId
 	 * @return
 	 */
-	public JSONArray getMemberListByGroupId(String groupId) {
-		JSONObject member = this.getMember(groupId);
+	public JSONArray getMemberListByGroupId(String groupName) {
+		JSONObject member = this.getMember(groupName);
 		return (JSONArray) (member == null ? null : member.get("MemberList"));
 	}
 
@@ -449,10 +498,10 @@ public class Core implements Serializable, CookieStoreHolder {
 		return dataStore.get("publicUserIdList");
 	}
 
-	public boolean addPublicUserId(String id) {
+	public boolean addPublicUserId(String userName) {
 		List<String> theIdList = this.getPublicUserIdList();
-		if (!theIdList.contains(id)) {
-			theIdList.add(id);
+		if (!theIdList.contains(userName)) {
+			theIdList.add(userName);
 			this.setPublicUserIdList(theIdList);
 			return true;
 		}
@@ -479,10 +528,10 @@ public class Core implements Serializable, CookieStoreHolder {
 		return dataStore.get("specialUserIdList");
 	}
 
-	public boolean addSpecialUserId(String id) {
+	public boolean addSpecialUserId(String userName) {
 		List<String> theIdList = this.getSpecialUserIdList();
-		if (!theIdList.contains(id)) {
-			theIdList.add(id);
+		if (!theIdList.contains(userName)) {
+			theIdList.add(userName);
 			this.setSpecialUserIdList(theIdList);
 			return true;
 		}

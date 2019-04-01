@@ -26,6 +26,8 @@ import com.alibaba.fastjson.JSONObject;
 
 import cn.open.itchat4j.beans.BaseMsg;
 import cn.open.itchat4j.beans.RecommendInfo;
+import cn.open.itchat4j.enums.MsgTypeValueEnum;
+import cn.open.itchat4j.enums.MsgUserType;
 import cn.open.itchat4j.enums.StorageLoginInfoEnum;
 import cn.open.itchat4j.enums.URLEnum;
 import cn.open.itchat4j.enums.VerifyFriendEnum;
@@ -43,35 +45,32 @@ public class MsgHelper {
 	private static Logger logger = LoggerFactory.getLogger(MsgHelper.class);
 	private static Core core = Core.getInstance();
 
+	private static String getUserNameByNickName(MsgUserType userType, String nickName) {
+		return core.getUserName(userType.getValue(), nickName);
+	}
+
 	/**
 	 * 根据UserName发送文本消息
 	 * 
 	 * @author https://github.com/yaphone
 	 * @date 2017年5月4日 下午11:17:38
-	 * @param msg
-	 * @param toUserName
+	 * @param userName
+	 * @param text
 	 */
-	private static void sendMsg(String text, String toUserName) {
+	public static void sendTextMsg(String userName, String text) {
 		if (text == null) {
 			return;
 		}
-		logger.info(String.format("发送消息 %s: %s", toUserName, text));
-		webWxSendMsg(1, text, toUserName);
+		sendTypedMsg(MsgTypeValueEnum.MSGTYPE_TEXT.getValue(), userName, text);
 	}
 
-	/**
-	 * 根据ID发送文本消息
-	 * 
-	 * @author https://github.com/yaphone
-	 * @date 2017年5月6日 上午11:45:51
-	 * @param text
-	 * @param id
-	 */
-	public static void sendMsgById(String text, String id) {
-		if (text == null) {
+	public static void sendTextMsgByNickName(MsgUserType userType, String nickName, String text) {
+		String userName = getUserNameByNickName(userType, nickName);
+		if (userName == null) {
+			logger.warn("没有找到给定类型和别名的用户");
 			return;
 		}
-		sendMsg(text, id);
+		sendTextMsg(userName, text);
 	}
 
 	/**
@@ -80,17 +79,23 @@ public class MsgHelper {
 	 * @author https://github.com/yaphone
 	 * @date 2017年4月23日 下午2:32:02
 	 * @param msgType
+	 * @param userName
 	 * @param content
-	 * @param toUserName
 	 */
-	public static void webWxSendMsg(int msgType, String content, String toUserName) {
+	public static void sendTypedMsg(int msgType, String userName, String content) {
+		if (!core.isAlive()) {
+			logger.warn("微信已离线，消息发送已取消");
+		}
+		//
+		logger.info(String.format("发送消息 %s: %s", userName, content));
+		//
 		Map<String, Object> loginInfo = core.getLoginInfo();
 		String url = String.format(URLEnum.WEB_WX_SEND_MSG.getUrl(), loginInfo.get("url"));
 		Map<String, Object> msgMap = new HashMap<String, Object>();
 		msgMap.put("Type", msgType);
 		msgMap.put("Content", content);
 		msgMap.put("FromUserName", core.getUserName());
-		msgMap.put("ToUserName", toUserName == null ? core.getUserName() : toUserName);
+		msgMap.put("ToUserName", userName == null ? core.getUserName() : userName);
 		msgMap.put("LocalID", new Date().getTime() * 10);
 		msgMap.put("ClientMsgId", new Date().getTime() * 10);
 		Map<String, Object> paramMap = core.newParamMap();
@@ -113,7 +118,11 @@ public class MsgHelper {
 	 * @param filePath
 	 * @return
 	 */
-	private static JSONObject webWxUploadMedia(String filePath) {
+	private static JSONObject uploadMediaFile(String filePath) {
+		if (!core.isAlive()) {
+			logger.warn("微信已离线，消息发送已取消");
+		}
+		//
 		File f = new File(filePath);
 		if (!f.exists() && f.isFile()) {
 			logger.info("file is not exist");
@@ -178,16 +187,16 @@ public class MsgHelper {
 	 * 
 	 * @author https://github.com/yaphone
 	 * @date 2017年5月7日 下午10:34:24
-	 * @param nickName
+	 * @param userName
 	 * @param filePath
 	 * @return
 	 */
-	public static boolean sendPicMsgByUserId(String userId, String filePath) {
-		JSONObject responseObj = webWxUploadMedia(filePath);
+	public static boolean sendPicMsg(String userName, String filePath) {
+		JSONObject responseObj = uploadMediaFile(filePath);
 		if (responseObj != null) {
 			String mediaId = responseObj.getString("MediaId");
 			if (mediaId != null) {
-				return webWxSendMsgImg(userId, mediaId);
+				return sendPicMsgMedia(userName, mediaId);
 			}
 		}
 		return false;
@@ -200,14 +209,18 @@ public class MsgHelper {
 	 * @date 2017年5月7日 下午10:38:55
 	 * @return
 	 */
-	private static boolean webWxSendMsgImg(String userId, String mediaId) {
+	private static boolean sendPicMsgMedia(String userName, String mediaId) {
+		if (!core.isAlive()) {
+			logger.warn("微信已离线，消息发送已取消");
+		}
+		//
 		Map<String, Object> loginInfo = core.getLoginInfo();
 		String url = String.format("%s/webwxsendmsgimg?fun=async&f=json&pass_ticket=%s", loginInfo.get("url"), loginInfo.get("pass_ticket"));
 		Map<String, Object> msgMap = new HashMap<String, Object>();
 		msgMap.put("Type", 3);
 		msgMap.put("MediaId", mediaId);
 		msgMap.put("FromUserName", core.getUserName());
-		msgMap.put("ToUserName", userId);
+		msgMap.put("ToUserName", userName);
 		String clientMsgId = String.valueOf(new Date().getTime()) + String.valueOf(new Random().nextLong()).substring(1, 5);
 		msgMap.put("LocalID", clientMsgId);
 		msgMap.put("ClientMsgId", clientMsgId);
@@ -233,11 +246,11 @@ public class MsgHelper {
 	 * 
 	 * @author https://github.com/yaphone
 	 * @date 2017年5月7日 下午11:57:36
-	 * @param userId
+	 * @param userName
 	 * @param filePath
 	 * @return
 	 */
-	public static boolean sendFileMsgByUserId(String userId, String filePath) {
+	public static boolean sendFileMsg(String userName, String filePath) {
 		String title = new File(filePath).getName();
 		Map<String, String> data = new HashMap<String, String>();
 		data.put("appid", Config.API_WXAPPID);
@@ -246,14 +259,14 @@ public class MsgHelper {
 		data.put("attachid", "");
 		data.put("type", "6"); // APPMSGTYPE_ATTACH
 		data.put("fileext", title.split("\\.")[1]); // 文件后缀
-		JSONObject responseObj = webWxUploadMedia(filePath);
+		JSONObject responseObj = uploadMediaFile(filePath);
 		if (responseObj != null) {
 			data.put("totallen", responseObj.getString("StartPos"));
 			data.put("attachid", responseObj.getString("MediaId"));
 		} else {
 			logger.error("sednFileMsgByUserId 错误: ", data);
 		}
-		return webWxSendAppMsg(userId, data);
+		return sendAppMsg(userName, data);
 	}
 
 	/**
@@ -261,11 +274,15 @@ public class MsgHelper {
 	 * 
 	 * @author https://github.com/yaphone
 	 * @date 2017年5月10日 上午12:21:28
-	 * @param userId
+	 * @param userName
 	 * @param data
 	 * @return
 	 */
-	private static boolean webWxSendAppMsg(String userId, Map<String, String> data) {
+	private static boolean sendAppMsg(String userName, Map<String, String> data) {
+		if (!core.isAlive()) {
+			logger.warn("微信已离线，消息发送已取消");
+		}
+		//
 		Map<String, Object> loginInfo = core.getLoginInfo();
 		String url = String.format("%s/webwxsendappmsg?fun=async&f=json&pass_ticket=%s", loginInfo.get("url"), loginInfo.get("pass_ticket"));
 		String clientMsgId = String.valueOf(new Date().getTime()) + String.valueOf(new Random().nextLong()).substring(1, 5);
@@ -275,7 +292,7 @@ public class MsgHelper {
 		msgMap.put("Type", data.get("type"));
 		msgMap.put("Content", content);
 		msgMap.put("FromUserName", core.getUserName());
-		msgMap.put("ToUserName", userId);
+		msgMap.put("ToUserName", userName);
 		msgMap.put("LocalID", clientMsgId);
 		msgMap.put("ClientMsgId", clientMsgId);
 		/*
@@ -305,16 +322,21 @@ public class MsgHelper {
 	 * 被动添加好友
 	 * 
 	 * @date 2017年6月29日 下午10:08:43
-	 * @param msg
+	 * @param refMsg
 	 * @param accept
 	 *            true 接受 false 拒绝
 	 */
-	public static void addFriend(BaseMsg msg, boolean accept) {
+	public static void addFriend(BaseMsg refMsg, boolean accept) {
+		if (!core.isAlive()) {
+			logger.warn("微信已离线，消息发送已取消");
+		}
+		//
 		if (!accept) { // 不添加
 			return;
 		}
+		//
 		int status = VerifyFriendEnum.ACCEPT.getCode(); // 接受好友请求
-		RecommendInfo recommendInfo = msg.getRecommendInfo();
+		RecommendInfo recommendInfo = refMsg.getRecommendInfo();
 		String userName = recommendInfo.getUserName();
 		String ticket = recommendInfo.getTicket();
 		// 更新好友列表
@@ -367,7 +389,11 @@ public class MsgHelper {
 	 * @param userName
 	 * @param remName
 	 */
-	public static boolean setUserRemarkNameByNickName(String userName, String remarkName) {
+	public static boolean setUserRemarkName(String userName, String remarkName) {
+		if (!core.isAlive()) {
+			logger.warn("微信已离线，消息发送已取消");
+		}
+		//
 		Map<String, Object> loginInfo = core.getLoginInfo();
 		String url = String.format(URLEnum.WEB_WX_REMARKNAME.getUrl(), loginInfo.get("url"), loginInfo.get(StorageLoginInfoEnum.pass_ticket.getKey()));
 		Map<String, Object> msgMap = new HashMap<String, Object>();

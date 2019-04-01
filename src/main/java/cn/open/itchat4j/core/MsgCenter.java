@@ -24,6 +24,10 @@ public class MsgCenter {
 
 	private static int sendDelayMs = 1000;
 
+	public static Thread handleMsgs(MsgHandler msgHandler) {
+		return handleMsgs(msgHandler, true);
+	}
+
 	/**
 	 * 消息处理
 	 * 
@@ -31,51 +35,65 @@ public class MsgCenter {
 	 * @date 2017年5月14日 上午10:52:34
 	 * @param msgHandler
 	 */
-	public static void handleMsg(MsgHandler msgHandler) {
-		Queue<BaseMsg> msgList = core.getMsgList();
-		while (true) {
-			BaseMsg msg = msgList.poll();
-			if (msg != null && msg.getContent() != null) {
-				if (msg.getContent().length() > 0) {
-					if (msg.getTypeCode() != null) {
-						try {
-							if (msg.getTypeCode().equals(MsgTypeCodeEnum.TEXT.getCode())) {
-								String result = msgHandler.textMsgHandle(msg);
-								MsgHelper.sendMsgById(result, msg.getFromUserName());
-							} else if (msg.getTypeCode().equals(MsgTypeCodeEnum.PIC.getCode())) {
-								String result = msgHandler.picMsgHandle(msg);
-								MsgHelper.sendMsgById(result, msg.getFromUserName());
-							} else if (msg.getTypeCode().equals(MsgTypeCodeEnum.VOICE.getCode())) {
-								String result = msgHandler.voiceMsgHandle(msg);
-								MsgHelper.sendMsgById(result, msg.getFromUserName());
-							} else if (msg.getTypeCode().equals(MsgTypeCodeEnum.VIEDO.getCode())) {
-								String result = msgHandler.viedoMsgHandle(msg);
-								MsgHelper.sendMsgById(result, msg.getFromUserName());
-							} else if (msg.getTypeCode().equals(MsgTypeCodeEnum.NAMECARD.getCode())) {
-								String result = msgHandler.nameCardMsgHandle(msg);
-								MsgHelper.sendMsgById(result, msg.getFromUserName());
-							} else if (msg.getTypeCode().equals(MsgTypeCodeEnum.SYS.getCode())) {
-								// 系统消息
-								msgHandler.sysMsgHandle(msg);
-							} else if (msg.getTypeCode().equals(MsgTypeCodeEnum.VERIFYMSG.getCode())) { // 确认添加好友消息
-								String result = msgHandler.verifyAddFriendMsgHandle(msg);
-								MsgHelper.sendMsgById(result, msg.getRecommendInfo().getUserName());
-							} else if (msg.getTypeCode().equals(MsgTypeCodeEnum.MEDIA.getCode())) { // 多媒体消息
-								String result = msgHandler.mediaMsgHandle(msg);
-								MsgHelper.sendMsgById(result, msg.getFromUserName());
+	public static Thread handleMsgs(MsgHandler msgHandler, boolean autoStart) {
+		Thread theThread = new Thread() {
+			@Override
+			public void run() {
+				Queue<BaseMsg> msgList = core.getMsgList();
+				while (true) {
+					BaseMsg msg = msgList.poll();
+					if (msg != null && msg.getContent() != null) {
+						if (msg.getContent().length() > 0) {
+							if (msg.getTypeCode() != null) {
+								try {
+									if (msg.getTypeCode().equals(MsgTypeCodeEnum.TEXT.getCode())) {
+										String result = msgHandler.textMsgHandle(msg);
+										MsgHelper.sendTextMsg(msg.getFromUserName(), result);
+									} else if (msg.getTypeCode().equals(MsgTypeCodeEnum.PIC.getCode())) {
+										String result = msgHandler.picMsgHandle(msg);
+										MsgHelper.sendTextMsg(msg.getFromUserName(), result);
+									} else if (msg.getTypeCode().equals(MsgTypeCodeEnum.VOICE.getCode())) {
+										String result = msgHandler.voiceMsgHandle(msg);
+										MsgHelper.sendTextMsg(msg.getFromUserName(), result);
+									} else if (msg.getTypeCode().equals(MsgTypeCodeEnum.VIEDO.getCode())) {
+										String result = msgHandler.viedoMsgHandle(msg);
+										MsgHelper.sendTextMsg(msg.getFromUserName(), result);
+									} else if (msg.getTypeCode().equals(MsgTypeCodeEnum.NAMECARD.getCode())) {
+										String result = msgHandler.nameCardMsgHandle(msg);
+										MsgHelper.sendTextMsg(msg.getFromUserName(), result);
+									} else if (msg.getTypeCode().equals(MsgTypeCodeEnum.SYS.getCode())) {
+										// 系统消息
+										msgHandler.sysMsgHandle(msg);
+									} else if (msg.getTypeCode().equals(MsgTypeCodeEnum.VERIFYMSG.getCode())) { // 确认添加好友消息
+										String result = msgHandler.verifyAddFriendMsgHandle(msg);
+										MsgHelper.sendTextMsg(msg.getRecommendInfo().getUserName(), result);
+									} else if (msg.getTypeCode().equals(MsgTypeCodeEnum.MEDIA.getCode())) { // 多媒体消息
+										String result = msgHandler.mediaMsgHandle(msg);
+										MsgHelper.sendTextMsg(msg.getFromUserName(), result);
+									}
+								} catch (Exception e) {
+									logger.error(e.getMessage());
+								}
 							}
-						} catch (Exception e) {
-							e.printStackTrace();
 						}
 					}
+					try {
+						TimeUnit.MILLISECONDS.sleep(sendDelayMs);
+					} catch (InterruptedException e) {
+						break;
+					}
 				}
+				//
+				logger.warn("已中止消息处理循环");
 			}
-			try {
-				TimeUnit.MILLISECONDS.sleep(sendDelayMs);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
+
+		};
+		//
+		if (autoStart) {
+			theThread.start();
 		}
+		//
+		return theThread;
 	}
 
 }

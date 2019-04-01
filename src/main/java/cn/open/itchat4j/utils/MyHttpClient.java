@@ -18,7 +18,6 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.cookie.Cookie;
 import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
@@ -46,8 +45,7 @@ public class MyHttpClient {
 		this.cookieStoreHolder = cookieStoreHolder;
 		this.cookieStore = this.cookieStoreHolder.getCookieStore();
 		if (this.cookieStore == null) {
-			this.cookieStore = new BasicCookieStore();
-			this.cookieStoreHolder.saveCookieStore(this.cookieStore);
+			throw new IllegalArgumentException("cookieStore 不能为 null");
 		}
 		this.httpClient = HttpClients.custom().setDefaultCookieStore(this.cookieStore).build();
 	}
@@ -98,7 +96,7 @@ public class MyHttpClient {
 		} catch (IOException e) {
 			logger.info(e.getMessage());
 		} finally {
-			this.cookieStoreHolder.saveCookieStore(cookieStore);
+			this.cookieStoreHolder.syncCookieStore(cookieStore);
 		}
 
 		return entity;
@@ -129,7 +127,7 @@ public class MyHttpClient {
 		} catch (IOException e) {
 			logger.info(e.getMessage());
 		} finally {
-			this.cookieStoreHolder.saveCookieStore(cookieStore);
+			this.cookieStoreHolder.syncCookieStore(cookieStore);
 		}
 
 		return entity;
@@ -155,7 +153,7 @@ public class MyHttpClient {
 		} catch (Exception e) {
 			logger.info(e.getMessage());
 		} finally {
-			this.cookieStoreHolder.saveCookieStore(cookieStore);
+			this.cookieStoreHolder.syncCookieStore(cookieStore);
 		}
 		return entity;
 	}
