@@ -66,9 +66,13 @@ public class Wechat {
 
 			@Override
 			public void onWaitForScan(boolean waiting) {
-				logger.info("正在等着扫码（不要再调登陆了），或打开如下url扫码登陆：");
-				logger.info(wechatHelper.getQrImageUrl(false));
-				// TODO 在中央缓存更新扫码url
+				if (waiting) {
+					logger.info("正在等着扫码（不要再调登陆了），或打开如下url扫码登陆：");
+					logger.info(wechatHelper.getQrImageUrl(false));
+					// TODO 在中央缓存更新扫码url
+				} else {
+					// TODO 在中央缓存清除扫码url
+				}
 			}
 		};
 		// 1
