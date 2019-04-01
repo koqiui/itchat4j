@@ -8,4 +8,6 @@ public interface CoreStateListener {
 	void onDataChanged(long dataVersion);
 
 	void onUuidRefreshed();
+
+	void onWaitForScan(boolean waiting);
 }

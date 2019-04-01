@@ -137,19 +137,33 @@ public class WechatHelper {
 		return instance;
 	}
 
+	private CoreStateListener stateListener;
+
+	private void triggerWaitingForScanListener(boolean waiting) {
+		if (this.stateListener != null) {
+			this.stateListener.onWaitForScan(waiting);
+		}
+	}
+
+	// 1.x
 	public void initCore() {
 		this.initCore(null, null);
 	}
 
+	// 1.y
 	public void initCore(CoreStateListener stateListener) {
 		this.initCore(null, null);
 	}
 
+	// 1.z
 	public void initCore(CoreDataStore dataStore, CoreStateListener stateListener) {
 		core.doInit(dataStore);
 		core.setStateListener(stateListener);
+		//
+		this.stateListener = stateListener;
 	}
 
+	// 2
 	public void setNodeName(String nodeName) {
 		core.setNodeName(nodeName);
 	}
@@ -157,6 +171,8 @@ public class WechatHelper {
 	private ReentrantLock isRunningLock = new ReentrantLock();
 	private transient boolean isRunning = false;
 
+	// 3
+	/** 启动节点，启动后才能 */
 	public void startup() {
 		try {
 			isRunningLock.lock();
@@ -173,6 +189,7 @@ public class WechatHelper {
 		}
 	}
 
+	// last
 	public void shutdown() {
 		try {
 			isRunningLock.lock();
@@ -182,6 +199,7 @@ public class WechatHelper {
 				return;
 			}
 			isRunning = false;
+
 			//
 			this.stopHeatbeat();
 			this.stopDataMonitor();
@@ -200,16 +218,39 @@ public class WechatHelper {
 				core.setAlive(false);
 			}
 			//
+			tryingToLogin = false;
+			if (waitingForLoginScan) {
+				waitingForLoginScan = false;
+				triggerWaitingForScanListener(waitingForLoginScan);
+			}
+			//
 			logger.info("WechatHelper 已停止");
 		} finally {
 			isRunningLock.unlock();
 		}
 	}
 
+	/**
+	 * 是否在线
+	 */
+	public boolean isAlive() {
+		return core.isAlive();
+	}
+
+	/**
+	 * 是否正在等着扫码登陆（如果是不要再调登陆了）
+	 */
+
+	public boolean isWaitingForLoginScan() {
+		return this.waitingForLoginScan;
+	}
+
+	// 4.x
 	public void doLogin() {
 		this.doLogin(null);
 	}
 
+	// 4.y
 	/**
 	 * 如果指定图片路径则从本地打开，仅用于测试
 	 * 
@@ -328,13 +369,6 @@ public class WechatHelper {
 	}
 
 	/**
-	 * 是否仍然在线
-	 */
-	public boolean isAlive() {
-		return core.isAlive();
-	}
-
-	/**
 	 * 获取登陆用的uuid
 	 * 
 	 * @param refresh
@@ -363,7 +397,10 @@ public class WechatHelper {
 						retUuid = matcher.group(2);
 						core.setUuid(retUuid);
 						logger.info("已刷新了 登陆uuid");
-						waitingLoginScan = true;
+						if (!waitingForLoginScan) {
+							waitingForLoginScan = true;
+							triggerWaitingForScanListener(waitingForLoginScan);
+						}
 					}
 				} else {
 					String regEx2 = "window.QRLogin.code = (\\d+); window.QRLogin.error = \"(\\S*?)\";";
@@ -375,12 +412,18 @@ public class WechatHelper {
 							message = ResultEnum.WAIT_SCAN.getMessage();
 							logger.info(message);
 							retUuid = core.getUuid();
-							waitingLoginScan = true;
+							if (!waitingForLoginScan) {
+								waitingForLoginScan = true;
+								triggerWaitingForScanListener(waitingForLoginScan);
+							}
 						} else if (ResultEnum.WAIT_CONFIRM.getCode().equals(retCode)) {
 							message = ResultEnum.WAIT_CONFIRM.getMessage();
 							logger.info(message);
 							retUuid = core.getUuid();
-							waitingLoginScan = true;
+							if (!waitingForLoginScan) {
+								waitingForLoginScan = true;
+								triggerWaitingForScanListener(waitingForLoginScan);
+							}
 						}
 					}
 				}
@@ -470,7 +513,8 @@ public class WechatHelper {
 	}
 
 	private ReentrantLock tryToLoginLock = new ReentrantLock();
-	private boolean tryToLoginFlag = false;
+	private transient boolean tryingToLogin = false;
+	private transient boolean waitingForLoginScan = false;
 
 	/** 延续性登陆uuid（只需在手机端确认即可） */
 	private String getPushLoginUuid() {
@@ -511,29 +555,30 @@ public class WechatHelper {
 		return null;
 	}
 
-	private boolean waitingLoginScan = false;
-
 	/**
 	 * 登陆
 	 */
 	private Boolean tryToLogin() {
 		tryToLoginLock.lock();
 		try {
-			if (tryToLoginFlag) {
+			if (tryingToLogin) {
 				return null;
 			}
-			tryToLoginFlag = true;
+			tryingToLogin = true;
 			//
-			boolean isLoggedIn = false;
+			boolean hasLoggedIn = false;
 
 			int checkInterval = 1000;
-			while (!isLoggedIn && isRunning) {
+			while (!hasLoggedIn && isRunning) {
 				try {
-					if (!waitingLoginScan) {
+					if (!waitingForLoginScan) {
 						String uuid = this.getPushLoginUuid();
 						if (uuid == null) {
-							tryToLoginFlag = false;
-							waitingLoginScan = false;
+							tryingToLogin = false;
+							if (waitingForLoginScan) {
+								waitingForLoginScan = false;
+								triggerWaitingForScanListener(waitingForLoginScan);
+							}
 							return false;
 						} else {
 							logger.info("请在手机上点击 登陆 确认");
@@ -553,23 +598,35 @@ public class WechatHelper {
 					String status = checklogin(result);
 					if (ResultEnum.SUCCESS.getCode().equals(status)) {
 						String errMsg = processLoginInfo(result); // 处理结果
-						isLoggedIn = errMsg == null;
-						if (isLoggedIn) {
+						hasLoggedIn = errMsg == null;
+						if (hasLoggedIn) {
 							core.setAlive(true);
-							waitingLoginScan = false;
+							if (waitingForLoginScan) {
+								waitingForLoginScan = false;
+								triggerWaitingForScanListener(waitingForLoginScan);
+							}
 						} else {
 							logger.warn(errMsg);
 						}
 						break;
 					} else if (ResultEnum.WAIT_SCAN.getCode().equals(status)) {
 						logger.info(ResultEnum.WAIT_SCAN.getMessage());
-						waitingLoginScan = true;
+						if (!waitingForLoginScan) {
+							waitingForLoginScan = true;
+							triggerWaitingForScanListener(waitingForLoginScan);
+						}
 					} else if (ResultEnum.WAIT_CONFIRM.getCode().equals(status)) {
 						logger.info(ResultEnum.WAIT_CONFIRM.getMessage());
-						waitingLoginScan = true;
+						if (!waitingForLoginScan) {
+							waitingForLoginScan = true;
+							triggerWaitingForScanListener(waitingForLoginScan);
+						}
 					} else if (ResultEnum.WAIT_TIMEOUT.getCode().equals(status)) {
 						logger.info(ResultEnum.WAIT_TIMEOUT.getMessage());
-						waitingLoginScan = true;
+						if (!waitingForLoginScan) {
+							waitingForLoginScan = true;
+							triggerWaitingForScanListener(waitingForLoginScan);
+						}
 					} else {
 						break;
 					}
@@ -580,9 +637,9 @@ public class WechatHelper {
 				}
 			}
 			//
-			tryToLoginFlag = false;
+			tryingToLogin = false;
 			//
-			return isLoggedIn;
+			return hasLoggedIn;
 		} finally {
 			tryToLoginLock.unlock();
 		}

@@ -23,7 +23,7 @@
 		2、支持自定义数据存储(提供了CoreDataStore的实现： 内存 MemDataStore 和 文件 存储FileDataStore)和加载
 		3、支持hot reload（自动）、数据定期检查和保存、减少接口方法、支持web端应用
 		4、支持按（用户类型和）nickName 获取 userName（因为每次登陆userName都不同）
-		5、支持事件通知（CoreStateListener：onUserOnline, onUserOffline, onDataChanged, onUuidRefreshed）
+		5、支持事件通知（CoreStateListener：onUserOnline, onUserOffline, onDataChanged, onUuidRefreshed, onWaitForScan）
 		
 		主要参考：
 			itchat4jdemo下的 itchat4jtest.demo.demo1.DemoClient

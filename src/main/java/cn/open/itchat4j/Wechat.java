@@ -63,29 +63,41 @@ public class Wechat {
 				logger.info(wechatHelper.getQrImageUrl(false));
 				// TODO 在中央缓存更新扫码url
 			}
+
+			@Override
+			public void onWaitForScan(boolean waiting) {
+				logger.info("正在等着扫码（不要再调登陆了），或打开如下url扫码登陆：");
+				logger.info(wechatHelper.getQrImageUrl(false));
+				// TODO 在中央缓存更新扫码url
+			}
 		};
-		//
+		// 1
 		if (dataStoreFilePath == null) {
 			wechatHelper.initCore(); // 默认使用MemDataStore
 		} else {
 			FileDataStore dataStore = new FileDataStore(dataStoreFilePath);
 			wechatHelper.initCore(dataStore, stateListener);
 		}
+		// 2
 		wechatHelper.setNodeName("demoNode");
+		// 3
 		wechatHelper.startup();
-		//
+		// 4
 		wechatHelper.doLogin(qrImageFileDir);
 		//
 		logger.info("+++++++++++++++++++开始消息处理+++++++++++++++++++++");
 		msgThread.start();
-		//
-		try {
-			Thread.currentThread().sleep(10000);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
 
-		//
+		// 等待登陆上线
+		while (!wechatHelper.isAlive()) {
+			try {
+				Thread.currentThread().sleep(1000);
+			} catch (InterruptedException e) {
+				logger.warn("可能已强制结束");
+				System.exit(-1);
+			}
+		}
+		// 模拟消息发送
 		String nickName = "😀ོ ꧁灬尼莫灬꧂";
 		MsgUser user = wechatHelper.getNickNameUser(MsgUserType.Friend, nickName);
 		logger.info(JSON.toJSONString(user));
