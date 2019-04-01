@@ -31,6 +31,7 @@ import cn.open.itchat4j.beans.ImageBytes;
 import cn.open.itchat4j.core.Core;
 import cn.open.itchat4j.core.CoreDataStore;
 import cn.open.itchat4j.core.CoreStateListener;
+import cn.open.itchat4j.core.MsgUser;
 import cn.open.itchat4j.enums.MsgTypeCodeEnum;
 import cn.open.itchat4j.enums.MsgTypeValueEnum;
 import cn.open.itchat4j.enums.MsgUserType;
@@ -702,6 +703,13 @@ public class WechatHelper {
 		}
 	}
 
+	// 处理头像
+	/// cgi-bin/mmwebwx-bin/webwxgeticon?seq=693443134&username=@6553b9492ebb0964d6e8b162d2a7321e&skey=
+	// https://wx.qq.com/cgi-bin/mmwebwx-bin/webwxgetheadimg?seq=693443134&username=@6553b9492ebb0964d6e8b162d2a7321e&skey=
+	private static String reformHeadImgUrl(String srcUrl) {
+		return URLEnum.WEB_WX_URL.getUrl() + srcUrl.replace("webwxgeticon", "webwxgetheadimg");
+	}
+
 	private void addWxMember(JSONObject member) {
 		String userName = member.getString("UserName");
 		String nickName = member.getString("NickName");
@@ -713,6 +721,16 @@ public class WechatHelper {
 			return;
 		}
 		member.put("NickName", nickName);
+		String headImgUrl = reformHeadImgUrl(member.getString("HeadImgUrl"));
+		member.put("HeadImgUrl", headImgUrl);
+		//
+		MsgUser msgUser = new MsgUser();
+		msgUser.userName = userName;
+		msgUser.nickName = nickName;
+		msgUser.remarkName = member.getString("RemarkName");
+		msgUser.headImgUrl = headImgUrl;
+		msgUser.dispName = member.getString("DisplayName");
+		msgUser.signature = member.getString("Signature");
 		//
 		core.setMember(userName, member);
 		int userType = 0;
@@ -734,7 +752,8 @@ public class WechatHelper {
 			logger.info("联系人：" + nickName);
 		}
 		//
-		core.setNickName(userType, userName, nickName);
+		msgUser.userType = userType;
+		core.setNickNameUser(userType, nickName, msgUser);
 	}
 
 	/**
@@ -1295,4 +1314,25 @@ public class WechatHelper {
 		return result;
 	}
 
+	public MsgUser getNickNameUser(MsgUserType userType, String nickName) {
+		if (userType == null) {
+			userType = MsgUserType.Friend;
+		}
+		return core.getNickNameUser(userType, nickName);
+	}
+
+	public MsgUser getNickNameUser(Integer userType, String nickName) {
+		if (userType == null) {
+			userType = MsgUserType.Friend.getValue();
+		}
+		return core.getNickNameUser(userType, nickName);
+	}
+
+	public List<JSONObject> getFriendList() {
+		return core.getContactList();
+	}
+
+	public List<JSONObject> getGroupList() {
+		return core.getGroupList();
+	}
 }

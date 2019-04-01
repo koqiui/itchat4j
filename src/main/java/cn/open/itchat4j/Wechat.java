@@ -6,11 +6,14 @@ import java.util.Date;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.alibaba.fastjson.JSON;
+
 import cn.open.itchat4j.core.CoreStateListener;
 import cn.open.itchat4j.core.FileDataStore;
 import cn.open.itchat4j.core.MsgCenter;
 import cn.open.itchat4j.core.MsgHandler;
 import cn.open.itchat4j.core.MsgHelper;
+import cn.open.itchat4j.core.MsgUser;
 import cn.open.itchat4j.enums.MsgUserType;
 
 public class Wechat {
@@ -81,7 +84,12 @@ public class Wechat {
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
-		MsgHelper.sendTextMsgByNickName(MsgUserType.Friend, "😀ོ ꧁灬尼莫灬꧂", "这是从我的微信模拟客户端发出的消息");
+
+		//
+		String nickName = "😀ོ ꧁灬尼莫灬꧂";
+		MsgUser user = wechatHelper.getNickNameUser(MsgUserType.Friend, nickName);
+		logger.info(JSON.toJSONString(user));
+		MsgHelper.sendTextMsgByNickName(MsgUserType.Friend, nickName, "这是从我的微信模拟客户端发出的消息");
 	}
 
 }

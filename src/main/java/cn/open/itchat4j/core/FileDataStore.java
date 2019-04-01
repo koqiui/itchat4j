@@ -9,17 +9,13 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.http.impl.client.BasicCookieStore;
-import org.apache.http.impl.cookie.BasicClientCookie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 
 public class FileDataStore implements CoreDataStore {
@@ -37,26 +33,6 @@ public class FileDataStore implements CoreDataStore {
 	@Override
 	public void clear() {
 		dataMap.clear();
-	}
-
-	public BasicCookieStore toCookieStore(JSONObject cookieStoreJson) {
-		if (cookieStoreJson != null) {
-			BasicCookieStore cookieStore = new BasicCookieStore();
-			JSONArray tempCookies = cookieStoreJson.getJSONArray("cookies");
-			for (int i = 0; i < tempCookies.size(); i++) {
-				JSONObject tempCookie = tempCookies.getJSONObject(i);
-				BasicClientCookie cookie = new BasicClientCookie(tempCookie.getString("name"), tempCookie.getString("value"));
-				cookie.setDomain(tempCookie.getString("domain"));
-				cookie.setSecure(tempCookie.getBooleanValue("secure"));
-				cookie.setPath(tempCookie.getString("path"));
-				cookie.setExpiryDate(new Date(tempCookie.getLongValue("expiryDate")));
-				//
-				cookieStore.addCookie(cookie);
-			}
-			//
-			return cookieStore;
-		}
-		return null;
 	}
 
 	// 设置默认值（防止报错）
@@ -92,8 +68,10 @@ public class FileDataStore implements CoreDataStore {
 					for (Map.Entry<String, Object> itemEntry : jsonMap.entrySet()) {
 						String key = itemEntry.getKey();
 						Object val = itemEntry.getValue();
-						if (key.equals("cookieStore")) {
-							val = toCookieStore((JSONObject) val);
+						if (Core.isNickNameUserKey(key)) {
+							val = CoreDataStore.toMsgUser((JSONObject) val);
+						} else if (key.equals("cookieStore")) {
+							val = CoreDataStore.toCookieStore((JSONObject) val);
 						}
 						if (val != null) {
 							dataMap.put(key, val);

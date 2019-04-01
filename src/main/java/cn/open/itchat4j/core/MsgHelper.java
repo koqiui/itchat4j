@@ -46,7 +46,7 @@ public class MsgHelper {
 	private static Core core = Core.getInstance();
 
 	private static String getUserNameByNickName(MsgUserType userType, String nickName) {
-		return core.getUserName(userType.getValue(), nickName);
+		return core.getNickUserName(userType.getValue(), nickName);
 	}
 
 	/**

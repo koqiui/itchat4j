@@ -238,10 +238,10 @@ public class Core implements Serializable, CookieStoreHolder {
 			this.dataStore.del(this.makeMemberKey(memeberId));
 			nickName = this.getNickName(memeberId);
 			// userName => nickName
-			this.dataStore.del(this.makeKeyForNickName(memeberId));
+			this.dataStore.del(makeKeyForNickName(memeberId));
 			// nickName => userName
 			for (int x = 0; x < allUserTypes.length; x++) {
-				this.dataStore.del(this.makeKeyForUserName(allUserTypes[x], nickName));
+				this.dataStore.del(makeKeyForNickNameUser(allUserTypes[x], nickName));
 			}
 			allMemberIds.remove(i);
 		}
@@ -359,28 +359,53 @@ public class Core implements Serializable, CookieStoreHolder {
 	}
 
 	// userName => nickName
-	private String makeKeyForNickName(String userName) {
-		return "nickName" + userName;
+	private static String makeKeyForNickName(String userName) {
+		return "nickName#" + userName;
 	}
 
-	// nickName => userName
-	private String makeKeyForUserName(int userType, String nickName) {
-		return "userName$" + userType + "$" + nickName;
+	// nickName => MsgUser
+	private static String makeKeyForNickNameUser(Integer userType, String nickName) {
+		return "nickName-user#" + userType + "#" + nickName;
 	}
 
-	public void setNickName(int userType, String userName, String nickName) {
+	public static boolean isNickNameUserKey(String key) {
+		return key == null ? false : key.startsWith("nickName-user#");
+	}
+
+	// nickName => MsgUser
+	public void setNickNameUser(Integer userType, String nickName, MsgUser userInfo) {
+		if (userType == null) {
+			userType = userInfo.userType;
+		}
+		if (nickName == null) {
+			nickName = userInfo.nickName;
+		}
 		if (nickName != null && !nickName.trim().equals("")) {
-			dataStore.set(this.makeKeyForNickName(userName), nickName);
-			dataStore.set(this.makeKeyForUserName(userType, nickName), userName);
+			dataStore.set(makeKeyForNickName(userInfo.userName), nickName);
+			//
+			dataStore.set(makeKeyForNickNameUser(userType, nickName), userInfo);
 		}
 	}
 
-	public String getNickName(String userName) {
-		return dataStore.get(this.makeKeyForNickName(userName));
+	public MsgUser getNickNameUser(MsgUserType userType, String nickName) {
+		return this.getNickNameUser(userType.getValue(), nickName);
 	}
 
-	public String getUserName(int userType, String nickName) {
-		return dataStore.get(this.makeKeyForUserName(userType, nickName));
+	public MsgUser getNickNameUser(Integer userType, String nickName) {
+		return dataStore.get(makeKeyForNickNameUser(userType, nickName));
+	}
+
+	public String getNickUserName(MsgUserType userType, String nickName) {
+		return this.getNickUserName(userType.getValue(), nickName);
+	}
+
+	public String getNickUserName(Integer userType, String nickName) {
+		MsgUser target = this.getNickNameUser(userType, nickName);
+		return target == null ? null : target.userName;
+	}
+
+	public String getNickName(String userName) {
+		return dataStore.get(makeKeyForNickName(userName));
 	}
 
 	/** 好友+群聊+公众号+特殊账号 id列表 */
