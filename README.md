@@ -37,6 +37,7 @@
 
 		
 
+>
 
 	public class DemoClient {
 		public static void main(String[] args) {
@@ -218,7 +219,8 @@
 		}
 	
 	}
- 
+
+
 ## 类似项目
 
 [itchat](https://github.com/littlecodersh/ItChat) ：优秀的、基于Python的微信个人号API，同时也是本项目的灵感之源。
