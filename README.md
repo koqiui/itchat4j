@@ -17,7 +17,7 @@
 
 
 
-## itchat4j 改造版
+## itchat4j 修正加强版 适用于 本地 + web多节点 应用
 
 > 1、公开包名、简化包结构、命名重构（主要类：WechatHelper 和 MsgHelper）
 
