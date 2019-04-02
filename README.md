@@ -154,7 +154,7 @@ public class Wechat {
 		wechatHelper.setHeadImgFaultFileName(headImgFaultFileName);
 		// 2
 		if (dataStoreFilePath == null) {
-			wechatHelper.initCore(); // 默认使用MemDataStore
+			wechatHelper.initCore(stateListener); // 默认使用MemDataStore
 		} else {
 			FileDataStore dataStore = new FileDataStore(dataStoreFilePath);
 			wechatHelper.initCore(dataStore, stateListener);
