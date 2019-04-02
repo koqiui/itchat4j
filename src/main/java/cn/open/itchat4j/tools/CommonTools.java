@@ -1,6 +1,14 @@
 package cn.open.itchat4j.tools;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.io.StringReader;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -8,6 +16,7 @@ import java.util.regex.Pattern;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import org.apache.log4j.Logger;
 import org.w3c.dom.Document;
 import org.xml.sax.InputSource;
 
@@ -27,6 +36,7 @@ import cn.open.itchat4j.utils.Config;
  *
  */
 public class CommonTools {
+	private static Logger logger = Logger.getLogger(CommonTools.class);
 
 	public static boolean formatEmojiAsAlias = false;
 	// 不可解析的emoji替代字符
@@ -239,6 +249,102 @@ public class CommonTools {
 
 	public static void filterMsgEmojiEx(JSONObject d, String k) {
 		filterMsgEmojiEx(d, k, true);
+	}
+
+	//
+	public static boolean makeDirs(String fileDir) {
+		return makeDirs(new File(fileDir));
+	}
+
+	public static boolean makeDirs(File fileDir) {
+		if (fileDir.exists() && fileDir.isDirectory()) {
+			return true;
+		}
+		//
+		if (!fileDir.exists() || !fileDir.isDirectory()) {
+			fileDir.mkdirs();
+			return true;
+		}
+		return false;
+	}
+
+	public static byte[] readFileBytes(File file) {
+		if (file == null) {
+			return null;
+		}
+		//
+		ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		byte[] buffer = new byte[1024 * 10];
+		FileInputStream input = null;
+		//
+		int readCount = -1;
+		byte[] bufferX = null;
+		try {
+			input = new FileInputStream(file);
+			while ((readCount = input.read(buffer)) > -1) {
+				bos.write(buffer, 0, readCount);
+			}
+			//
+			bufferX = bos.toByteArray();
+		} catch (IOException e) {
+			logger.error(e.getMessage());
+		} finally {
+			if (bos != null) {
+				try {
+					if (input != null) {
+						input.close();
+					}
+					bos.close();
+				} catch (IOException e) {
+					logger.error(e.getMessage());
+				}
+			}
+		}
+		return bufferX;
+	}
+
+	public static boolean saveFileBytes(File file, byte[] imgBytes) {
+		OutputStream fileStream = null;
+		try {
+			fileStream = new FileOutputStream(file);
+			fileStream.write(imgBytes);
+			fileStream.flush();
+			return true;
+		} catch (IOException e) {
+			logger.error(e.getMessage());
+			return false;
+		} finally {
+			if (fileStream != null) {
+				try {
+					fileStream.close();
+				} catch (IOException e) {
+					logger.error(e.getMessage());
+				}
+			}
+		}
+	}
+
+	// 利用java底层代码实现十六进制的转换
+	private static char hexDigits[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+
+	public final static String getMD5Code(String srcStr) {
+		try {
+			byte strTemp[] = srcStr.getBytes();
+			MessageDigest digest = MessageDigest.getInstance("MD5");
+			digest.update(strTemp);
+			byte tmpBytes[] = digest.digest();
+
+			int len = tmpBytes.length;
+			char str[] = new char[len * 2];
+			for (int i = 0, k = 0; i < len; i++) {
+				str[k++] = hexDigits[tmpBytes[i] >>> 4 & 0xf];
+				str[k++] = hexDigits[tmpBytes[i] & 0xf];
+			}
+			return new String(str);
+		} catch (NoSuchAlgorithmException e) {
+			logger.error(e.getMessage());
+			return null;
+		}
 	}
 
 }

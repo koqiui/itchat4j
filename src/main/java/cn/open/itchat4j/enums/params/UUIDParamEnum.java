@@ -7,7 +7,8 @@ package cn.open.itchat4j.enums.params;
  */
 public enum UUIDParamEnum {
 
-	APP_ID("appid", "wx782c26e4c19acffb"), //wx782c26e4c19acffb //wxeb7ec651dd0aefa9 //wx782c26e4c19acffb
+	APP_ID_OLD("appid", "wx782c26e4c19acffb"), //
+	APP_ID_NEW("appid", "wxeb7ec651dd0aefa9"), //
 	FUN("fun", "new"), //
 	LANG("lang", "zh_CN"), //
 	_("_", "时间戳");

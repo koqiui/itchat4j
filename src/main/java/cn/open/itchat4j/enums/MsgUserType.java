@@ -11,6 +11,7 @@ import java.util.Iterator;
  *
  */
 public enum MsgUserType {
+	Self(0, "用户自己"), //
 	Friend(1, "普通朋友"), //
 	Group(2, "群组"), //
 	Public(3, "公众号"), //

@@ -3,21 +3,27 @@
 
 	<groupId>cn.open</groupId>
 	<artifactId>itchat4j</artifactId>
-	<version>2.0.1</version>
+	<version>2.1.0</version>
 	<packaging>jar</packaging>
 
 	<description>
 		itchat4j 改造版
 		-------------------------------
-		1、公开包名、简化包结构、命名重构（主要类：WechatHelper）
-		2、支持自定义数据存储(提供了CoreDataStore的实现： 内存 MemDataStore 和 文件 存储FileDataStore)和加载
-		3、支持hot reload（自动）、数据定期检查和保存、减少接口方法、支持web端应用
-		4、支持按（用户类型和）nickName 获取 userName（因为每次登陆userName都不同）
-		5、支持事件通知（CoreStateListener：onUserOnline, onUserOffline, onDataChanged, onUuidRefreshed, onWaitForScan）
+		> 1、公开包名、简化包结构、命名重构（主要类：WechatHelper 和 MsgHelper）
+
+		> 2、支持自定义数据存储(提供了CoreDataStore的实现： 内存 MemDataStore 和 文件 存储FileDataStore)和加载
 		
-		主要参考：
+		> 3、支持事件通知（CoreStateListener：onUserOnline, onUserReady, onUserOffline, onDataChanged, onUuidRefreshed, onWaitForScan）
+		
+		> 4、支持hot reload（自动）、刷新扫码重新登陆、数据定期检查和保存、减少接口方法、（结合中央存储）支持web端 多节点应用
+		
+		> 5、支持获取（自己、朋友、群组的）基本信息（MsgUserInfo，因为每次登陆userName都不同） 和 头像图片（支持按用户类型+用户别名的md5文件名进行图像磁盘缓存）
+		
+		> 6、基于5，支持按（用户类型和）nickName 发送消息（增加离线拒发）
+				
+		> 主要参考：
 			itchat4jdemo下的 itchat4jtest.demo.demo1.DemoClient
-			itchat4j 下的 Wechat（客户端演示用）, WechatHelper
+			itchat4j 下的 Wechat（客户端演示用）, WechatHelper		
 	</description>
 
 

@@ -27,7 +27,6 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 
 import cn.open.itchat4j.beans.BaseMsg;
-import cn.open.itchat4j.beans.ImageBytes;
 import cn.open.itchat4j.core.Core;
 import cn.open.itchat4j.core.CoreDataStore;
 import cn.open.itchat4j.core.CoreStateListener;
@@ -141,35 +140,61 @@ public class WechatHelper {
 
 	private void triggerWaitingForScanListener(boolean waiting) {
 		if (this.stateListener != null) {
-			this.stateListener.onWaitForScan(waiting);
+			this.stateListener.onWaitForScan(this.getNodeName(), waiting);
 		}
 	}
 
-	// 1.x
-	public void initCore() {
-		this.initCore(null, null);
+	public String getNodeName() {
+		return core.getNodeName();
 	}
 
-	// 1.y
-	public void initCore(CoreStateListener stateListener) {
-		this.initCore(null, null);
-	}
-
-	// 1.z
-	public void initCore(CoreDataStore dataStore, CoreStateListener stateListener) {
-		core.doInit(dataStore);
-		core.setStateListener(stateListener);
-		//
-		this.stateListener = stateListener;
-	}
-
-	// 2
+	// 1
 	public void setNodeName(String nodeName) {
 		core.setNodeName(nodeName);
 	}
 
+	// 2.x
+	public void initCore() {
+		this.initCore(null, null);
+	}
+
+	// 2.y
+	public void initCore(CoreStateListener stateListener) {
+		this.initCore(null, null);
+	}
+
+	// 2.z
+	public void initCore(CoreDataStore dataStore, CoreStateListener stateListener) {
+		core.doInit(dataStore);
+		// core 负责触发多数事件
+		core.setStateListener(stateListener);
+		// 本类 负责触发部分事件
+		this.stateListener = stateListener;
+	}
+
+	// 可选 是否使用新版微信id
+	// cn.open.itchat4j.enums.params.UUIDParamEnum.APP_ID_OLD
+	// cn.open.itchat4j.enums.params.UUIDParamEnum.APP_ID_NEW
+	private boolean useNewVersion = false;
+
+	// 注意：针对在线的节点有效（所以，所有节点都要使用同样的版本）
+	public void setUseNewVersion(boolean useNewVersion) {
+		if (useNewVersion != this.useNewVersion) {
+			this.useNewVersion = useNewVersion;
+			//
+			if (core.isAlive() && !core.isUseNewVersion().equals(useNewVersion)) {
+				this.doLogout();// 清除了所有登陆相关信息
+				// 很重要！！！
+				core.setUseNewVersion(useNewVersion);
+				//
+				logger.info("切换为 " + (useNewVersion ? "新版本" : "旧版本") + " 微信重新登陆");
+				this.doLogin(this.lastQrImageDir);
+			}
+		}
+	}
+
 	private ReentrantLock isRunningLock = new ReentrantLock();
-	private transient boolean isRunning = false;
+	private volatile boolean isRunning = false;
 
 	// 3
 	/** 启动节点，启动后才能 */
@@ -199,7 +224,6 @@ public class WechatHelper {
 				return;
 			}
 			isRunning = false;
-
 			//
 			this.stopHeatbeat();
 			this.stopDataMonitor();
@@ -216,6 +240,7 @@ public class WechatHelper {
 				}
 				//
 				core.setAlive(false);
+				readyFlag = false;
 			}
 			//
 			tryingToLogin = false;
@@ -250,16 +275,19 @@ public class WechatHelper {
 		this.doLogin(null);
 	}
 
+	private String lastQrImageDir;
+
 	// 4.y
 	/**
-	 * 如果指定图片路径则从本地打开，仅用于测试
+	 * 登陆集成方法
 	 * 
-	 * @author koqiui
-	 * @date 2019年3月31日 下午8:21:39
-	 * 
-	 * @param qrPath
+	 * @param qrImageDir
+	 *            如果指定图片保存目录则从本地打开（仅用于测试，web应用下不要设置，从getQrImageUrl(false)即可获取 二维码图片url ）
 	 */
-	public void doLogin(String qrPath) {
+	public void doLogin(String qrImageDir) {
+		// 缓存用于自动重新登陆
+		this.lastQrImageDir = qrImageDir;
+		//
 		if (!isRunning) {
 			logger.warn("Helper未启动或已停止，不能登陆");
 			return;
@@ -268,6 +296,9 @@ public class WechatHelper {
 		if (core.isAlive()) {
 			logger.warn("已经登陆在线...");
 			return;
+		} else if (core.isUseNewVersion() == null) {
+			// 初始化版本标记，很重要
+			core.setUseNewVersion(this.useNewVersion);
 		}
 		//
 		Boolean result = this.tryToLogin();
@@ -297,7 +328,7 @@ public class WechatHelper {
 				// 10*6秒
 				String uuid = null;
 				int uuidTimes = 6;
-				while ((uuid = this.getUuid(true)) == null && uuidTimes > 0) {
+				while (uuidTimes > 0 && (uuid = this.getUuid(true)) == null) {
 					uuidTimes--;
 					logger.warn("10秒后重新获取uuid");
 					SleepUtils.sleep(10000);
@@ -312,25 +343,25 @@ public class WechatHelper {
 				}
 				//
 				if (uuid == null) {
-					if (count == tryTimes) {
-						logger.error("获取登陆uuid失败，登陆不了");
-						return;
-					}
+					this.doLogout();
+					//
+					logger.warn("获取登陆uuid失败，登陆不了，更换设备重新登陆");
+					return;
 				} else {
-					if (qrPath == null) {
+					if (qrImageDir == null) {
 						logger.info("请在浏览器中打开并扫码 " + this.getQrImageUrl(uuid));
 						core.setLastMessage("请在浏览器中打开并扫码 ");
 						break;
 					} else {
 						logger.info("获取登陆二维码图片");
-						if (this.getAndOpenQrImage(uuid, qrPath)) {
+						if (this.getAndOpenQrImage(uuid, qrImageDir)) {
 							break;
 						}
 					}
 				}
 			}
 			//
-			this.doLogin(qrPath);
+			this.doLogin(qrImageDir);
 		}
 		//
 		if (!isRunning) {
@@ -364,6 +395,67 @@ public class WechatHelper {
 
 			logger.info("启动数据变动监测");
 			this.startDataMonitor();
+			//
+			readyFlag = true;
+		} else {
+			logger.warn("初始化基本信息失败");
+		}
+
+	}
+
+	// 5 头像缓存目录
+	private String headImgCacheDir = null;
+
+	public boolean setHeadImgCacheDir(String headImgCacheDir) {
+		boolean result = true;
+		if (headImgCacheDir != null) {
+			result = CommonTools.makeDirs(headImgCacheDir);
+			if (!result) {
+				logger.error("头像缓存目录无法创建");
+				return result;
+			}
+		}
+		this.headImgCacheDir = headImgCacheDir;
+		//
+		return result;
+	}
+
+	// 6 无头像的默认替代头像文件名（绝对路径 或 相对于头像缓存目录）
+	private File headImgFaultFile = null;
+
+	public void setHeadImgFaultFileName(String headImgFaultFileName) {
+		if (headImgFaultFileName == null) {
+			headImgFaultFile = null;
+		} else {
+			headImgFaultFile = new File(headImgFaultFileName);
+			if (!headImgFaultFile.isAbsolute()) {
+				if (this.headImgCacheDir == null) {
+					headImgFaultFile = null;
+					throw new IllegalArgumentException("默认头像文件为相对路径时，必须同时【先指定】头像缓存目录 作为其所在目录！");
+				} else {
+					headImgFaultFile = new File(this.headImgCacheDir, headImgFaultFileName);
+				}
+			}
+		}
+	}
+
+	/** 刷新重新登陆 */
+	private static class ActiveReloginThread extends Thread {
+		WechatHelper helper;
+
+		public ActiveReloginThread(WechatHelper helper) {
+			this.helper = helper;
+		}
+
+		@Override
+		public void run() {
+			helper.stopHeatbeat();
+			helper.stopDataMonitor();
+			helper.core.setAlive(false);
+			helper.readyFlag = false;
+			//
+			logger.info("开启重新登陆");
+			helper.doLogin(helper.lastQrImageDir);
 		}
 
 	}
@@ -372,7 +464,7 @@ public class WechatHelper {
 	 * 获取登陆用的uuid
 	 * 
 	 * @param refresh
-	 *            是否刷新
+	 *            是否刷新（如果刷新则会触发登陆）
 	 * @return
 	 */
 	private String getUuid(boolean refresh) {
@@ -380,7 +472,9 @@ public class WechatHelper {
 		if (retUuid == null) {
 			// 组装参数和URL
 			List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
-			params.add(new BasicNameValuePair(UUIDParamEnum.APP_ID.param(), UUIDParamEnum.APP_ID.value()));
+			BasicNameValuePair wxAppIdParam = core.isUseNewVersion() ? new BasicNameValuePair(UUIDParamEnum.APP_ID_NEW.param(), UUIDParamEnum.APP_ID_NEW.value())
+					: new BasicNameValuePair(UUIDParamEnum.APP_ID_OLD.param(), UUIDParamEnum.APP_ID_OLD.value());
+			params.add(wxAppIdParam);
 			params.add(new BasicNameValuePair(UUIDParamEnum.FUN.param(), UUIDParamEnum.FUN.value()));
 			params.add(new BasicNameValuePair(UUIDParamEnum.LANG.param(), UUIDParamEnum.LANG.value()));
 			params.add(new BasicNameValuePair(UUIDParamEnum._.param(), String.valueOf(System.currentTimeMillis())));
@@ -416,6 +510,10 @@ public class WechatHelper {
 								waitingForLoginScan = true;
 								triggerWaitingForScanListener(waitingForLoginScan);
 							}
+							// 处理扫码刷新登陆需求
+							if (core.isAlive()) {
+								new ActiveReloginThread(this).start();
+							}
 						} else if (ResultEnum.WAIT_CONFIRM.getCode().equals(retCode)) {
 							message = ResultEnum.WAIT_CONFIRM.getMessage();
 							logger.info(message);
@@ -443,37 +541,47 @@ public class WechatHelper {
 	 * @return
 	 */
 	private String getQrImageUrl(String uuid) {
-		if (uuid == null || uuid.trim().equals("")) {
+		if (uuid == null) {
 			uuid = this.getUuid(true);// 获取新的uuid
 		}
 		return uuid == null ? null : URLEnum.QRCODE_URL.getUrl() + uuid;
 	}
 
 	/**
-	 * 获取登陆uuid对应的二维码图片url
+	 * 获取登陆uuid对应的二维码图片url（或者 已启动登陆，刷新二维码）
 	 * 
 	 * @param refresh
-	 *            是否刷新获取
+	 *            是否刷新获取（仅对已启动登陆的有效）
 	 * @return
 	 */
 	public String getQrImageUrl(boolean refresh) {
-		return this.getQrImageUrl(refresh ? null : core.getUuid());
+		if (refresh && this.isRunning && (core.isAlive() || this.tryingToLogin || this.waitingForLoginScan)) {
+			return this.getQrImageUrl(null);
+		}
+		return core.getUuid() == null ? null : this.getQrImageUrl(core.getUuid());
+	}
+
+	/**
+	 * 获取（最新收到的）登陆uuid对应的二维码图片url
+	 */
+	public String getQrImageUrlByUuid(String uuid) {
+		return uuid == null ? null : this.getQrImageUrl(uuid);
 	}
 
 	/**
 	 * 获取登陆uuid对应的二维码字节流数据
 	 */
-	private ImageBytes getQrImageBytes(String uuid) {
+	private byte[] getQrImageBytes(String uuid) {
 		try {
 			String qrUrl = getQrImageUrl(uuid);
 			if (qrUrl == null) {
 				return null;
 			}
-			HttpEntity entity = core.getMyHttpClient().doGet(qrUrl, null, true, null);
-			ImageBytes qrImageBytes = new ImageBytes();
-			qrImageBytes.data = EntityUtils.toByteArray(entity);
-			if (qrImageBytes.data == null || qrImageBytes.data.length < 1) {
+			HttpEntity entity = core.getMyHttpClient().doGet(qrUrl, null, false, null);
+			byte[] qrImageBytes = EntityUtils.toByteArray(entity);
+			if (qrImageBytes == null || qrImageBytes.length < 1) {
 				logger.warn("获取的QrImage为空（无效）");
+				return null;
 			}
 			return qrImageBytes;
 		} catch (Exception e) {
@@ -486,18 +594,16 @@ public class WechatHelper {
 	 * 获取并打开登陆二维码（用于测试/调试扫码登陆）
 	 */
 	private boolean getAndOpenQrImage(String uuid, String qrPathDir) {
-		ImageBytes qrImageBytes = this.getQrImageBytes(uuid);
+		byte[] qrImageBytes = this.getQrImageBytes(uuid);
 		if (qrImageBytes == null) {
 			return false;
 		}
 		try {
-			File qrDir = new File(qrPathDir);
-			if (!qrDir.exists()) {
-				qrDir.mkdirs();
-			}
-			String qrPath = qrPathDir + File.separator + "QR.jpg";
+			CommonTools.makeDirs(qrPathDir);
+			//
+			String qrPath = qrPathDir + File.separator + "loginQRCode.jpg";
 			OutputStream out = new FileOutputStream(qrPath);
-			out.write(qrImageBytes.data);
+			out.write(qrImageBytes);
 			out.flush();
 			out.close();
 			try {
@@ -513,8 +619,14 @@ public class WechatHelper {
 	}
 
 	private ReentrantLock tryToLoginLock = new ReentrantLock();
-	private transient boolean tryingToLogin = false;
-	private transient boolean waitingForLoginScan = false;
+	private volatile boolean tryingToLogin = false;
+	private volatile boolean waitingForLoginScan = false;
+	private volatile boolean readyFlag = false;
+
+	// 是否已登陆并就绪
+	public boolean isReady() {
+		return this.readyFlag;
+	}
 
 	/** 延续性登陆uuid（只需在手机端确认即可） */
 	private String getPushLoginUuid() {
@@ -569,6 +681,8 @@ public class WechatHelper {
 			boolean hasLoggedIn = false;
 
 			int checkInterval = 1000;
+			int waitingTimeoutTimes = 0;
+			int waitingTimeoutLimit = 5;
 			while (!hasLoggedIn && isRunning) {
 				try {
 					if (!waitingForLoginScan) {
@@ -616,21 +730,31 @@ public class WechatHelper {
 							triggerWaitingForScanListener(waitingForLoginScan);
 						}
 					} else if (ResultEnum.WAIT_CONFIRM.getCode().equals(status)) {
-						logger.info(ResultEnum.WAIT_CONFIRM.getMessage());
+						logger.info(ResultEnum.WAIT_CONFIRM.getMessage() + (waitingTimeoutTimes > 0 ? "，已超时 " + waitingTimeoutTimes + " 次" : ""));
 						if (!waitingForLoginScan) {
 							waitingForLoginScan = true;
 							triggerWaitingForScanListener(waitingForLoginScan);
 						}
 					} else if (ResultEnum.WAIT_TIMEOUT.getCode().equals(status)) {
-						logger.info(ResultEnum.WAIT_TIMEOUT.getMessage());
-						if (!waitingForLoginScan) {
-							waitingForLoginScan = true;
-							triggerWaitingForScanListener(waitingForLoginScan);
+						waitingTimeoutTimes++;
+						if (waitingTimeoutTimes < waitingTimeoutLimit) {
+							logger.info(ResultEnum.WAIT_TIMEOUT.getMessage());
+							if (!waitingForLoginScan) {
+								waitingForLoginScan = true;
+								triggerWaitingForScanListener(waitingForLoginScan);
+							}
+						} else {
+							logger.info(ResultEnum.WAIT_TIMEOUT.getMessage() + " 太长，尝试重新登陆");
+							if (waitingForLoginScan) {
+								waitingForLoginScan = false;
+								triggerWaitingForScanListener(waitingForLoginScan);
+								break;
+							}
 						}
 					} else {
 						break;
 					}
-					SleepUtils.sleep(checkInterval);
+					Thread.sleep(checkInterval);
 				} catch (Exception e) {
 					logger.warn("微信登陆异常！", e);
 					break;
@@ -674,11 +798,13 @@ public class WechatHelper {
 					logger.warn(RetCodeEnum.LOGIN_OTHERWHERE.getMessage());
 					//
 					core.setAlive(false);
+					readyFlag = false;
+					//
 					return false;
 				}
 			}
-			JSONObject user = obj.getJSONObject(StorageLoginInfoEnum.User.getKey());
-			if (user != null) {
+			JSONObject userSelf = obj.getJSONObject(StorageLoginInfoEnum.User.getKey());
+			if (userSelf != null) {
 				JSONObject syncKey = obj.getJSONObject(StorageLoginInfoEnum.SyncKey.getKey());
 				loginInfo.put(StorageLoginInfoEnum.InviteStartCount.getKey(), obj.getInteger(StorageLoginInfoEnum.InviteStartCount.getKey()));
 				loginInfo.put(StorageLoginInfoEnum.SyncKey.getKey(), syncKey);
@@ -693,23 +819,37 @@ public class WechatHelper {
 
 				// 1_661706053|2_661706420|3_661706415|1000_1494151022
 				loginInfo.put(StorageLoginInfoEnum.synckey.getKey(), synckey.substring(0, synckey.length() - 1));// 1_656161336|2_656161626|3_656161313|11_656159955|13_656120033|201_1492273724|1000_1492265953|1001_1492250432|1004_1491805192
-				String userName = user.getString("UserName");
-				String nickName = user.getString("NickName");
+				String userName = userSelf.getString("UserName");
+				String nickName = userSelf.getString("NickName");
 				// 反转别名
 				nickName = nickName.replace("&amp;", "&");
 				nickName = CommonTools.parseEmoji(nickName);
-				user.put("NickName", nickName);
+				userSelf.put("NickName", nickName);
+				// 处理头像
+				String headImgUrl = toFullHeadImgUrl(userSelf.getString("HeadImgUrl"));
+				userSelf.put("HeadImgUrl", headImgUrl);
 				//
-				core.setUserSelf(user);
 				core.setUserName(userName);
 				core.setNickName(nickName);
+				core.setHeadImgUrl(headImgUrl);
+				//
+				core.setUserSelf(userSelf);
+				//
+				MsgUser nickSelf = new MsgUser();
+				nickSelf.userName = userName;
+				nickSelf.nickName = nickName;
+				nickSelf.remarkName = userSelf.getString("RemarkName");
+				nickSelf.headImgUrl = headImgUrl;
+				nickSelf.dispName = userSelf.getString("DisplayName");
+				nickSelf.signature = userSelf.getString("Signature");
+				nickSelf.userType = MsgUserType.Self.getValue();
+				core.setNickSelf(nickSelf);
 
 				// String chatSet = obj.getString("ChatSet");
 				// String[] chatSetArray = chatSet.split(",");
-				// String userName = null;
 				// for (int i = 0; i < chatSetArray.length; i++) {
 				// userName = chatSetArray[i].trim();
-				// if (userName.startsWith("@@") != -1) {
+				// if (userName.startsWith("@@")) {
 				// // 更新GroupIdList
 				// core.addGroupId(userName);
 				// }
@@ -761,10 +901,15 @@ public class WechatHelper {
 	}
 
 	// 处理头像
-	/// cgi-bin/mmwebwx-bin/webwxgeticon?seq=693443134&username=@6553b9492ebb0964d6e8b162d2a7321e&skey=
 	// https://wx.qq.com/cgi-bin/mmwebwx-bin/webwxgetheadimg?seq=693443134&username=@6553b9492ebb0964d6e8b162d2a7321e&skey=
-	private static String reformHeadImgUrl(String srcUrl) {
-		return URLEnum.WEB_WX_URL.getUrl() + srcUrl.replace("webwxgeticon", "webwxgetheadimg");
+	private static String toFullHeadImgUrl(String srcUrl) {
+		if (srcUrl == null) {
+			return srcUrl;
+		}
+		if (srcUrl.startsWith("http")) {
+			return srcUrl;
+		}
+		return URLEnum.WEB_WX_URL.getUrl() + srcUrl;
 	}
 
 	private void addWxMember(JSONObject member) {
@@ -778,7 +923,7 @@ public class WechatHelper {
 			return;
 		}
 		member.put("NickName", nickName);
-		String headImgUrl = reformHeadImgUrl(member.getString("HeadImgUrl"));
+		String headImgUrl = toFullHeadImgUrl(member.getString("HeadImgUrl"));
 		member.put("HeadImgUrl", headImgUrl);
 		//
 		MsgUser msgUser = new MsgUser();
@@ -1204,7 +1349,7 @@ public class WechatHelper {
 				String message = null;
 				while (isRunning) {
 					try {
-						SleepUtils.sleep(heatbeatInterval);
+						Thread.sleep(heatbeatInterval);
 						//
 						if (!core.isAlive()) {
 							message = "已掉线";
@@ -1223,18 +1368,21 @@ public class WechatHelper {
 							logger.info(message);
 							core.setAlive(false);
 							core.setLastMessage(message);
+							readyFlag = false;
 							break;
 						} else if (retcode.equals(RetCodeEnum.LOGIN_OTHERWHERE.getCode())) { // 其它地方登陆
 							message = RetCodeEnum.LOGIN_OTHERWHERE.getMessage();
 							logger.info(message);
 							core.setAlive(false);
 							core.setLastMessage(message);
+							readyFlag = false;
 							break;
 						} else if (retcode.equals(RetCodeEnum.INVALID_COOKIE.getCode())) { // 移动端退出
 							message = RetCodeEnum.INVALID_COOKIE.getMessage();
 							logger.warn(message);
 							core.setAlive(false);
 							core.setLastMessage(message);
+							readyFlag = false;
 							break;
 						} else if (retcode.equals(RetCodeEnum.SUCCESS.getCode())) {
 							JSONObject msgObj = pullSyncMsgs();
@@ -1278,6 +1426,7 @@ public class WechatHelper {
 						logger.warn(message);
 						core.setAlive(false);
 						core.setLastMessage(message);
+						readyFlag = false;
 						break;
 					}
 				}
@@ -1313,7 +1462,7 @@ public class WechatHelper {
 				String message = null;
 				while (isRunning) {
 					try {
-						SleepUtils.sleep(dataMonitorInterval);
+						Thread.sleep(dataMonitorInterval);
 						//
 						if (!core.isAlive()) {
 							message = "已掉线";
@@ -1348,8 +1497,10 @@ public class WechatHelper {
 		boolean result = false;
 		//
 		this.stopHeatbeat();
+		this.stopDataMonitor();
 		//
 		if (core.isAlive()) {
+			// 请求退出登陆
 			Map<String, Object> loginInfo = core.getLoginInfo();
 			String url = String.format(URLEnum.WEB_WX_LOGOUT.getUrl(), loginInfo.get(StorageLoginInfoEnum.url.getKey()));
 			List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
@@ -1361,29 +1512,26 @@ public class WechatHelper {
 				String text = EntityUtils.toString(entity, Consts.UTF_8); // 无消息
 				logger.info(text);
 				core.setAlive(false);
+				readyFlag = false;
 				//
 				result = true;
 			} catch (Exception e) {
 				logger.warn(e.getMessage());
+			}
+			// 重置所有数据
+			core.reset();
+		} else {
+			tryingToLogin = false;
+			if (waitingForLoginScan) {
+				waitingForLoginScan = false;
+				triggerWaitingForScanListener(waitingForLoginScan);
 			}
 		}
 		//
 		return result;
 	}
 
-	public MsgUser getNickNameUser(MsgUserType userType, String nickName) {
-		if (userType == null) {
-			userType = MsgUserType.Friend;
-		}
-		return core.getNickNameUser(userType, nickName);
-	}
-
-	public MsgUser getNickNameUser(Integer userType, String nickName) {
-		if (userType == null) {
-			userType = MsgUserType.Friend.getValue();
-		}
-		return core.getNickNameUser(userType, nickName);
-	}
+	// 数据获取
 
 	public List<JSONObject> getFriendList() {
 		return core.getContactList();
@@ -1393,4 +1541,148 @@ public class WechatHelper {
 		return core.getGroupList();
 	}
 
+	// 用户获取
+	public MsgUser getNickSelf() {// 用户自己
+		return core.getNickSelf();
+	}
+
+	public MsgUser getNickFriendUser(String nickName) {// 朋友昵称
+		return core.getNickNameUser(MsgUserType.Friend.getValue(), nickName);
+	}
+
+	public MsgUser getNickGroupUser(String nickName) {// 群组昵称
+		return core.getNickNameUser(MsgUserType.Group.getValue(), nickName);
+	}
+
+	//
+	public MsgUser getNickNameUser(MsgUserType userType, String nickName) {
+		return core.getNickNameUser(userType, nickName);
+	}
+
+	public MsgUser getNickNameUser(Integer userType, String nickName) {
+		return core.getNickNameUser(userType, nickName);
+	}
+
+	private static String makeNickNameUserHeadImgKey(Integer userType, String nickName) {
+		return userType + "#-#" + nickName;
+	}
+
+	// 头像获取
+	public byte[] getNickSelfHeadImgBytes() {// 用户自己
+		String nickName = core.getNickName();
+		int selfType = MsgUserType.Self.getValue();
+		String headImgKey, headImgFileName;
+		File headImgFile = null;
+		if (this.headImgCacheDir != null) {// 有缓存目录，先到缓存查找
+			headImgKey = makeNickNameUserHeadImgKey(selfType, nickName);
+			headImgFileName = CommonTools.getMD5Code(headImgKey);
+			headImgFile = new File(this.headImgCacheDir, headImgFileName + ".jpg");
+			if (headImgFile.exists()) {
+				logger.info("从缓存文件读取自己【" + nickName + "】的头像 " + headImgFile.getAbsolutePath());
+				return CommonTools.readFileBytes(headImgFile);
+			}
+		}
+		//
+		String headImgUrl = core.getHeadImgUrl();
+		byte[] imgBytes = this.getHeadImgBytes(headImgUrl);
+		if (imgBytes == null) {
+			if (headImgFaultFile != null && headImgFaultFile.exists()) {
+				logger.info("从默认文件为自己【" + nickName + "】返回头像 " + headImgFaultFile.getAbsolutePath());
+				return CommonTools.readFileBytes(headImgFaultFile);
+			}
+		} else if (this.headImgCacheDir != null) {
+			if (!headImgFile.exists() && CommonTools.saveFileBytes(headImgFile, imgBytes)) {
+				logger.info("自己【" + nickName + "】的头像 已写入缓存文件 " + headImgFile.getAbsolutePath());
+			}
+		}
+		//
+		return imgBytes;
+	}
+
+	public byte[] getNickFriendHeadImgBytes(String nickName) {// 朋友昵称
+		return this.getNickNameUserHeadImgBytes(MsgUserType.Friend, nickName);
+	}
+
+	public byte[] getNickGroupHeadImgBytes(String nickName) {// 群组昵称
+		return this.getNickNameUserHeadImgBytes(MsgUserType.Group, nickName);
+	}
+
+	public byte[] getNickNameUserHeadImgBytes(MsgUserType userType, String nickName) {
+		return this.getNickNameUserHeadImgBytes(userType.getValue(), nickName);
+	}
+
+	public byte[] getNickNameUserHeadImgBytes(Integer userType, String nickName) {
+		String headImgKey, headImgFileName;
+		File headImgFile = null;
+		if (this.headImgCacheDir != null) {// 有缓存目录，先到缓存查找
+			headImgKey = makeNickNameUserHeadImgKey(userType, nickName);
+			headImgFileName = CommonTools.getMD5Code(headImgKey);
+			headImgFile = new File(this.headImgCacheDir, headImgFileName + ".jpg");
+			if (headImgFile.exists()) {
+				logger.info("从缓存文件读取 " + userType + "#" + nickName + " 的头像 " + headImgFile.getAbsolutePath());
+				return CommonTools.readFileBytes(headImgFile);
+			}
+		}
+		//
+		MsgUser user = core.getNickNameUser(userType, nickName);
+		if (user == null) {
+			logger.warn("没找到指定类型指定别名的用户信息（可能离线）");
+			if (headImgFaultFile != null && headImgFaultFile.exists()) {
+				logger.info("从默认文件为 " + userType + "#" + nickName + " 返回头像 " + headImgFaultFile.getAbsolutePath());
+				return CommonTools.readFileBytes(headImgFaultFile);
+			}
+			return null;
+		}
+		String headImgUrl = user.headImgUrl;
+		if (headImgUrl == null || !headImgUrl.startsWith("http")) {
+			logger.warn("没有找到用户头像url，可能没有设置头像");
+			if (headImgFaultFile != null && headImgFaultFile.exists()) {
+				logger.info("从默认文件为 " + userType + "#" + nickName + " 返回头像 " + headImgFaultFile.getAbsolutePath());
+				return CommonTools.readFileBytes(headImgFaultFile);
+			}
+			return null;
+		}
+		//
+		byte[] imgBytes = this.getHeadImgBytes(headImgUrl);
+		if (imgBytes == null) {
+			if (headImgFaultFile != null && headImgFaultFile.exists()) {
+				logger.info("从默认文件为 " + userType + "#" + nickName + " 返回头像 " + headImgFaultFile.getAbsolutePath());
+				return CommonTools.readFileBytes(headImgFaultFile);
+			}
+		} else if (this.headImgCacheDir != null) {
+			if (!headImgFile.exists() && CommonTools.saveFileBytes(headImgFile, imgBytes)) {
+				logger.info(userType + "#" + nickName + " 的头像 已写入缓存文件 " + headImgFile.getAbsolutePath());
+			}
+		}
+		//
+		return imgBytes;
+	}
+
+	/**
+	 * 获取登陆uuid对应的二维码字节流数据
+	 */
+	private byte[] getHeadImgBytes(String headImgUrl) {
+		if (!core.isAlive()) {
+			logger.warn("非登陆态获取不到有效的头像 " + headImgUrl);
+			return null;
+		}
+		//
+		try {
+			if (headImgUrl == null || !headImgUrl.startsWith("http")) {
+				logger.warn("无效头像url " + headImgUrl);
+				return null;
+			}
+			HttpEntity entity = core.getMyHttpClient().doGet(headImgUrl, null, false, null);
+			byte[] headImgBytes = EntityUtils.toByteArray(entity);
+			if (headImgBytes == null || headImgBytes.length < 1) {
+				logger.warn("获取的头像为空（无效）");
+				return null;
+			}
+			//
+			return headImgBytes;
+		} catch (Exception e) {
+			logger.warn(e.getMessage());
+			return null;
+		}
+	}
 }

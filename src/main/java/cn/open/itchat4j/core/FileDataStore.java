@@ -68,9 +68,9 @@ public class FileDataStore implements CoreDataStore {
 					for (Map.Entry<String, Object> itemEntry : jsonMap.entrySet()) {
 						String key = itemEntry.getKey();
 						Object val = itemEntry.getValue();
-						if (Core.isNickNameUserKey(key)) {
+						if (Core.isNickNameUserKey(key) || key.equals("nickSelf")) {// MsgUser
 							val = CoreDataStore.toMsgUser((JSONObject) val);
-						} else if (key.equals("cookieStore")) {
+						} else if (key.equals("cookieStore")) {// CookieStore
 							val = CoreDataStore.toCookieStore((JSONObject) val);
 						}
 						if (val != null) {

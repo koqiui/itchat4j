@@ -6,11 +6,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
+import org.apache.log4j.Logger;
 
 import cn.open.itchat4j.beans.BaseMsg;
 import cn.open.itchat4j.core.Core;
@@ -26,7 +26,7 @@ import cn.open.itchat4j.enums.URLEnum;
  *
  */
 public class DownloadTools {
-	private static Logger logger = Logger.getLogger(DownloadTools.class.getSimpleName());
+	private static Logger logger = Logger.getLogger(DownloadTools.class);
 	private static Core core = Core.getInstance();
 
 	/**

@@ -99,15 +99,19 @@ public class Core implements Serializable, CookieStoreHolder {
 		this.nodeName = nodeName;
 	}
 
+	public String getNodeName() {
+		return this.nodeName;
+	}
+
 	private CoreStateListener stateListener;
 
 	public void setStateListener(CoreStateListener stateListener) {
 		this.stateListener = stateListener;
 	}
 
-	private transient boolean alive = false;
+	private volatile boolean alive = false;
 
-	private transient boolean initialized = false;
+	private volatile boolean initialized = false;
 
 	public void doInit() {
 		this.doInit(null);
@@ -133,7 +137,7 @@ public class Core implements Serializable, CookieStoreHolder {
 				myHttpClientLock.unlock();
 			}
 			//
-			this.setAlive(false);
+			this.alive = false;
 			//
 			logger.info("Core.doInit OK .");
 		} else {
@@ -143,7 +147,7 @@ public class Core implements Serializable, CookieStoreHolder {
 
 	private long lastDataSaveTs = 0L;
 	// 数据变更时间戳
-	private transient long lastDataChngTs = System.currentTimeMillis();
+	private volatile long lastDataChngTs = System.currentTimeMillis();
 
 	// 数据是否有变动（以便定时持久化）
 	public boolean hasDataChanges() {
@@ -157,7 +161,7 @@ public class Core implements Serializable, CookieStoreHolder {
 		boolean result = this.dataStore.save();
 		//
 		if (this.stateListener != null) {
-			this.stateListener.onDataChanged(lastDataSaveTs);
+			this.stateListener.onDataChanged(this.nodeName, lastDataSaveTs);
 		}
 		//
 		return result;
@@ -267,6 +271,15 @@ public class Core implements Serializable, CookieStoreHolder {
 		this.lastDataChngTs = System.currentTimeMillis();
 	}
 
+	// 注意可能尚未设置
+	public Boolean isUseNewVersion() {
+		return this.dataStore.get("useNewVersion");
+	}
+
+	public void setUseNewVersion(boolean useNewVersion) {
+		this.dataStore.set("useNewVersion", useNewVersion);
+	}
+
 	public String getUuid() {
 		return dataStore.get("uuid");
 	}
@@ -279,7 +292,7 @@ public class Core implements Serializable, CookieStoreHolder {
 		//
 		if (uuid != null && !uuid.equals(lastUuid)) {
 			if (this.stateListener != null) {
-				this.stateListener.onUuidRefreshed();
+				this.stateListener.onUuidRefreshed(this.nodeName, uuid);
 			}
 		}
 	}
@@ -324,12 +337,32 @@ public class Core implements Serializable, CookieStoreHolder {
 		this.lastDataChngTs = System.currentTimeMillis();
 	}
 
+	public String getHeadImgUrl() {
+		return dataStore.get("headImgUrl");
+	}
+
+	public void setHeadImgUrl(String headImgUrl) {
+		dataStore.set("headImgUrl", headImgUrl);
+		//
+		this.lastDataChngTs = System.currentTimeMillis();
+	}
+
 	public JSONObject getUserSelf() {
 		return dataStore.get("userSelf");
 	}
 
 	public void setUserSelf(JSONObject userSelf) {
 		dataStore.set("userSelf", userSelf);
+		//
+		this.lastDataChngTs = System.currentTimeMillis();
+	}
+
+	public MsgUser getNickSelf() {
+		return dataStore.get("nickSelf");
+	}
+
+	public void setNickSelf(MsgUser nickSelf) {
+		dataStore.set("nickSelf", nickSelf);
 		//
 		this.lastDataChngTs = System.currentTimeMillis();
 	}
@@ -459,8 +492,8 @@ public class Core implements Serializable, CookieStoreHolder {
 		return retList;
 	}
 
-	private transient long lastGroupChngTs = System.currentTimeMillis();
-	private transient long lastGroupSyncTs = lastGroupChngTs;
+	private volatile long lastGroupChngTs = System.currentTimeMillis();
+	private volatile long lastGroupSyncTs = lastGroupChngTs;
 
 	/** 是否有没有同步的群组（因为群组比较特别只有点进去才能得到通知，才能拿到userNmae，还拿不到nickName） */
 	public boolean hasNoneSyncGroups() {

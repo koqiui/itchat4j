@@ -46,7 +46,7 @@ public class MsgHelper {
 	private static Core core = Core.getInstance();
 
 	private static String getUserNameByNickName(MsgUserType userType, String nickName) {
-		return core.getNickUserName(userType.getValue(), nickName);
+		return core.getNickUserName(userType, nickName);
 	}
 
 	/**
@@ -57,20 +57,28 @@ public class MsgHelper {
 	 * @param userName
 	 * @param text
 	 */
-	public static void sendTextMsg(String userName, String text) {
+	public static boolean sendTextMsg(String userName, String text) {
 		if (text == null) {
-			return;
+			return false;
 		}
-		sendTypedMsg(MsgTypeValueEnum.MSGTYPE_TEXT.getValue(), userName, text);
+		return sendTypedMsg(MsgTypeValueEnum.MSGTYPE_TEXT.getValue(), userName, text);
 	}
 
-	public static void sendTextMsgByNickName(MsgUserType userType, String nickName, String text) {
+	public static boolean sendTextMsgByFriendNickName(String nickName, String text) {
+		return sendTextMsgByNickName(MsgUserType.Friend, nickName, text);
+	}
+
+	public static boolean sendTextMsgByGroupNickName(String nickName, String text) {
+		return sendTextMsgByNickName(MsgUserType.Group, nickName, text);
+	}
+
+	public static boolean sendTextMsgByNickName(MsgUserType userType, String nickName, String text) {
 		String userName = getUserNameByNickName(userType, nickName);
 		if (userName == null) {
 			logger.warn("没有找到给定类型和别名的用户");
-			return;
+			return false;
 		}
-		sendTextMsg(userName, text);
+		return sendTextMsg(userName, text);
 	}
 
 	/**
@@ -82,9 +90,10 @@ public class MsgHelper {
 	 * @param userName
 	 * @param content
 	 */
-	public static void sendTypedMsg(int msgType, String userName, String content) {
+	public static boolean sendTypedMsg(int msgType, String userName, String content) {
 		if (!core.isAlive()) {
 			logger.warn("微信已离线，消息发送已取消");
+			return false;
 		}
 		//
 		logger.info(String.format("发送消息 %s: %s", userName, content));
@@ -105,8 +114,12 @@ public class MsgHelper {
 			String paramStr = JSON.toJSONString(paramMap);
 			HttpEntity entity = core.getMyHttpClient().doPost(url, paramStr);
 			EntityUtils.toString(entity, Consts.UTF_8);
+			//
+			return true;
 		} catch (Exception e) {
 			logger.error("webWxSendMsg", e);
+			//
+			return false;
 		}
 	}
 
