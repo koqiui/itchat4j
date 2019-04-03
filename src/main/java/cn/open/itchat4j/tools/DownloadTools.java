@@ -39,7 +39,7 @@ public class DownloadTools {
 	 * @param path
 	 * @return
 	 */
-	public static Object getDownloadFn(BaseMsg msg, String type, String path) {
+	public static Object getDownloadFile(BaseMsg msg, String type, String path) {
 		Map<String, String> headerMap = new HashMap<String, String>();
 		List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
 		String url = "";
@@ -69,7 +69,7 @@ public class DownloadTools {
 			// Tools.printQr(path);
 
 		} catch (Exception e) {
-			logger.info(e.getMessage());
+			logger.error(e.getMessage());
 			return false;
 		}
 		return null;

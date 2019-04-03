@@ -27,7 +27,7 @@ public class MemDataStore implements CoreDataStore {
 				if (dataMap.get(key) == null) {
 					val = initItem.getValue();
 					dataMap.put(key, val);
-					logger.info("默认值：" + key + " => " + val);
+					logger.debug("默认值：" + key + " => " + val);
 				}
 			}
 		}
@@ -55,7 +55,7 @@ public class MemDataStore implements CoreDataStore {
 	public void set(String key, Object value) {
 		dataMap.put(key, value);
 	}
-	
+
 	@Override
 	public void del(String key) {
 		dataMap.remove(key);
@@ -70,7 +70,5 @@ public class MemDataStore implements CoreDataStore {
 	public Map<String, Object> getAll() {
 		return this.dataMap;
 	}
-
-	
 
 }

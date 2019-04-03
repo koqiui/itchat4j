@@ -96,7 +96,7 @@ public class MsgHelper {
 			return false;
 		}
 		//
-		logger.info(String.format("发送消息 %s: %s", userName, content));
+		logger.debug(String.format("发送消息 %s: %s", userName, content));
 		//
 		Map<String, Object> loginInfo = core.getLoginInfo();
 		String url = String.format(URLEnum.WEB_WX_SEND_MSG.getUrl(), loginInfo.get("url"));
@@ -138,7 +138,7 @@ public class MsgHelper {
 		//
 		File f = new File(filePath);
 		if (!f.exists() && f.isFile()) {
-			logger.info("file is not exist");
+			logger.warn("指定的文件不存在 " + filePath);
 			return null;
 		}
 		Map<String, Object> loginInfo = core.getLoginInfo();
@@ -390,8 +390,7 @@ public class MsgHelper {
 			logger.error("被动添加好友失败");
 		}
 
-		logger.info(result);
-
+		logger.debug(result);
 	}
 
 	/**

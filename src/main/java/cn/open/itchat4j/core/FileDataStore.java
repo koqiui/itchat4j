@@ -45,7 +45,7 @@ public class FileDataStore implements CoreDataStore {
 				if (dataMap.get(key) == null) {
 					val = initItem.getValue();
 					dataMap.put(key, val);
-					logger.info("默认值：" + key + " => " + val);
+					logger.debug("默认值：" + key + " => " + val);
 				}
 			}
 		}

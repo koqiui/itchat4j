@@ -23,14 +23,16 @@
 
 > 2、支持自定义数据存储(提供了CoreDataStore的实现： 内存 MemDataStore 和 文件 存储FileDataStore)和加载
 
-> 3、支持事件通知（CoreStateListener：onUserOnline, onUserReady, onUserOffline, onDataChanged, onUuidRefreshed, onWaitForScan）
+> 3、支持事件通知（CoreStateListener：onUserOnline, onUserReady, onUserOffline, onDataChanged, onUuidRefreshed, onWaitForScan, onLoginFail）
 
 > 4、支持hot reload（自动）、刷新扫码重新登陆、数据定期检查和保存、减少接口方法、（结合中央存储）支持web端 多节点应用
 
 > 5、支持获取（自己、朋友、群组的）基本信息（MsgUserInfo，因为每次登陆userName都不同） 和 头像图片（支持按用户类型+用户别名的md5文件名进行图像磁盘缓存）
 
 > 6、基于5，支持按（用户类型和）nickName 发送消息（增加离线拒发）
-		
+
+> 7、提供win和mac两种UserAgent，支持因状态错乱而无法获取uuid时自动更新deviceId并切换UserAgent	
+	
 > 主要参考：
 	itchat4jdemo下的 itchat4jtest.demo.demo1.DemoClient
 	itchat4j 下的 Wechat（客户端演示用）, WechatHelper	
@@ -139,9 +141,17 @@ public class Wechat {
 
 				// 下面仅仅是演示用
 				if (waiting) {
-					logger.info("正在等着扫码（不要再调登陆了），或打开如下url扫码登陆：");
+					logger.info("正在等着扫码，或打开如下url扫码登陆：");
 					logger.info(wechatHelper.getQrImageUrl(false));
 				}
+			}
+
+			@Override
+			public void onLoginFail(String nodeName, String message) {
+				logger.info("微信在本节点 " + nodeName + " 等着扫码登陆：");
+				// TODO 发送广播消息(nodeName, loginFail, message)
+				// 比如发送邮件通知用户本人或开发者处理
+
 			}
 
 		};
@@ -178,14 +188,6 @@ public class Wechat {
 			}
 		}
 
-		// 等待一段时间
-		try {
-			Thread.sleep(4000);
-		} catch (InterruptedException e) {
-			logger.warn("可能已强制结束");
-			System.exit(-1);
-		}
-
 		logger.info(" -------- 获取 信息及头像 -------");
 		logger.info(JSON.toJSONString(wechatHelper.getNickSelf(), true));
 		wechatHelper.getNickSelfHeadImgBytes();
@@ -214,8 +216,18 @@ public class Wechat {
 		// // 模拟消息发送
 		// String nickName = "😀ོ ꧁灬尼莫灬꧂";
 		// MsgUser user = wechatHelper.getNickNameUser(MsgUserType.Friend, nickName);
-		// logger.info(JSON.toJSONString(user));
+		// logger.debug(JSON.toJSONString(user));
 		// MsgHelper.sendTextMsgByNickName(MsgUserType.Friend, nickName, "这是从我的微信模拟客户端发出的消息");
+
+		// 等待30秒
+		try {
+			Thread.sleep(20000);
+		} catch (InterruptedException e) {
+			logger.warn("可能已强制结束");
+			System.exit(-1);
+		}
+		// 演示不再处理接收的消息
+		wechatHelper.setHandleRecvMsgs(false);
 	}
 
 }

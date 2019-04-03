@@ -90,9 +90,17 @@ public class Wechat {
 
 				// 下面仅仅是演示用
 				if (waiting) {
-					logger.info("正在等着扫码（不要再调登陆了），或打开如下url扫码登陆：");
+					logger.info("正在等着扫码，或打开如下url扫码登陆：");
 					logger.info(wechatHelper.getQrImageUrl(false));
 				}
+			}
+
+			@Override
+			public void onLoginFail(String nodeName, String message) {
+				logger.info("微信在本节点 " + nodeName + " 等着扫码登陆：");
+				// TODO 发送广播消息(nodeName, loginFail, message)
+				// 比如发送邮件通知用户本人或开发者处理
+
 			}
 
 		};
@@ -129,14 +137,6 @@ public class Wechat {
 			}
 		}
 
-		// 等待一段时间
-		try {
-			Thread.sleep(4000);
-		} catch (InterruptedException e) {
-			logger.warn("可能已强制结束");
-			System.exit(-1);
-		}
-
 		logger.info(" -------- 获取 信息及头像 -------");
 		logger.info(JSON.toJSONString(wechatHelper.getNickSelf(), true));
 		wechatHelper.getNickSelfHeadImgBytes();
@@ -165,8 +165,18 @@ public class Wechat {
 		// // 模拟消息发送
 		// String nickName = "😀ོ ꧁灬尼莫灬꧂";
 		// MsgUser user = wechatHelper.getNickNameUser(MsgUserType.Friend, nickName);
-		// logger.info(JSON.toJSONString(user));
+		// logger.debug(JSON.toJSONString(user));
 		// MsgHelper.sendTextMsgByNickName(MsgUserType.Friend, nickName, "这是从我的微信模拟客户端发出的消息");
+
+		// 等待30秒
+		try {
+			Thread.sleep(20000);
+		} catch (InterruptedException e) {
+			logger.warn("可能已强制结束");
+			System.exit(-1);
+		}
+		// 演示不再处理接收的消息
+		wechatHelper.setHandleRecvMsgs(false);
 	}
 
 }

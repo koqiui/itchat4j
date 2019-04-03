@@ -44,7 +44,6 @@ import cn.open.itchat4j.enums.params.StatusNotifyParamEnum;
 import cn.open.itchat4j.enums.params.UUIDParamEnum;
 import cn.open.itchat4j.tools.CommonTools;
 import cn.open.itchat4j.utils.Config;
-import cn.open.itchat4j.utils.SleepUtils;
 
 /**
  * 登陆服务辅助类
@@ -142,6 +141,14 @@ public class WechatHelper {
 		if (this.stateListener != null) {
 			this.stateListener.onWaitForScan(this.getNodeName(), waiting);
 		}
+	}
+
+	public boolean isHandleRecvMsgs() {
+		return core.isHandleRecvMsgs();
+	}
+
+	public void setHandleRecvMsgs(boolean handleRecvMsgs) {
+		core.setHandleRecvMsgs(handleRecvMsgs);
 	}
 
 	public String getNodeName() {
@@ -303,8 +310,12 @@ public class WechatHelper {
 		//
 		Boolean result = this.tryToLogin();
 		while (result == null) {
-			logger.info("等待扫码确认登陆...");
-			SleepUtils.sleep(1000);
+			logger.debug("等待扫码登陆确认...");
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				logger.warn("等待扫码登陆确认中断", e.getMessage());
+			}
 			//
 			if (!isRunning) {
 				return;
@@ -324,14 +335,18 @@ public class WechatHelper {
 				//
 				count++;
 				//
-				logger.info("获取UUID");
+				logger.debug("获取UUID");
 				// 10*6秒
 				String uuid = null;
 				int uuidTimes = 6;
 				while (uuidTimes > 0 && (uuid = this.getUuid(true)) == null) {
 					uuidTimes--;
 					logger.warn("10秒后重新获取uuid");
-					SleepUtils.sleep(10000);
+					try {
+						Thread.sleep(10000);
+					} catch (InterruptedException e) {
+						logger.warn("获取UUID中断", e.getMessage());
+					}
 					//
 					if (!isRunning) {
 						return;
@@ -345,7 +360,11 @@ public class WechatHelper {
 				if (uuid == null) {
 					this.doLogout();
 					//
-					logger.warn("获取登陆uuid失败，登陆不了，更换设备重新登陆");
+					String message = "获取登陆uuid失败，登陆不了，尝试其他方式重新登陆";
+					if (this.stateListener != null) {
+						this.stateListener.onLoginFail(core.getNodeName(), message);
+					}
+					logger.error(message);
 					return;
 				} else {
 					if (qrImageDir == null) {
@@ -368,7 +387,7 @@ public class WechatHelper {
 			return;
 		}
 		//
-		logger.info("清除所有联系人信息和消息列表");
+		logger.debug("清除所有联系人信息和消息列表");
 		core.clearAllContactsAndMsgs();
 
 		logger.info("初始化基本信息");
@@ -506,6 +525,11 @@ public class WechatHelper {
 							message = ResultEnum.WAIT_SCAN.getMessage();
 							logger.info(message);
 							retUuid = core.getUuid();
+							if (retUuid == null) {// 状态错乱，等待扫码，但又获取不到uuid
+								// 尝试模拟切换设备
+								core.getLoginInfo().put("deviceid", this.createDeviceId());
+								core.switchUserAgentType();
+							}
 							if (!waitingForLoginScan) {
 								waitingForLoginScan = true;
 								triggerWaitingForScanListener(waitingForLoginScan);
@@ -526,7 +550,7 @@ public class WechatHelper {
 					}
 				}
 			} catch (Exception e) {
-				logger.warn(e.getMessage());
+				logger.warn("获取登陆uuid失败", e.getMessage());
 			}
 		} else {
 			logger.info("使用现有 登陆uuid");
@@ -585,7 +609,7 @@ public class WechatHelper {
 			}
 			return qrImageBytes;
 		} catch (Exception e) {
-			logger.warn(e.getMessage());
+			logger.warn("请求二维码图片失败", e.getMessage());
 			return null;
 		}
 	}
@@ -609,11 +633,11 @@ public class WechatHelper {
 			try {
 				CommonTools.printQr(qrPath); // 打开登陆二维码图片
 			} catch (Exception e) {
-				logger.warn(e.getMessage());
+				logger.warn("打开登陆二维码失败", e.getMessage());
 			}
 			return true;
 		} catch (Exception e) {
-			logger.warn(e.getMessage());
+			logger.warn("获取并打开登陆二维码失败", e.getMessage());
 			return false;
 		}
 	}
@@ -652,16 +676,18 @@ public class WechatHelper {
 					core.setUuid(uuid);
 					return uuid;
 				} else if (RetCodeEnum.PARAM_ERROR.equals(retCodeEnum)) {
-					logger.warn(RetCodeEnum.PARAM_ERROR.getMessage());
+					logger.error(RetCodeEnum.PARAM_ERROR.getMessage());
 				} else if (RetCodeEnum.DEVICE_FAIL.equals(retCodeEnum)) {
-					logger.warn(RetCodeEnum.DEVICE_FAIL.getMessage());
-					loginInfo.put("deviceid", null);
+					logger.error(RetCodeEnum.DEVICE_FAIL.getMessage());
+					// 尝试模拟切换设备
+					loginInfo.put("deviceid", this.createDeviceId());
+					core.switchUserAgentType();
 				} else {
 					logger.warn(resutJson.getString("msg"));
 				}
 			}
 		} catch (Exception e) {
-			logger.warn(e.getMessage());
+			logger.warn("推送登陆失败", e.getMessage());
 		}
 		//
 		return null;
@@ -730,7 +756,7 @@ public class WechatHelper {
 							triggerWaitingForScanListener(waitingForLoginScan);
 						}
 					} else if (ResultEnum.WAIT_CONFIRM.getCode().equals(status)) {
-						logger.info(ResultEnum.WAIT_CONFIRM.getMessage() + (waitingTimeoutTimes > 0 ? "，已超时 " + waitingTimeoutTimes + " 次" : ""));
+						logger.warn(ResultEnum.WAIT_CONFIRM.getMessage() + (waitingTimeoutTimes > 0 ? "，已超时 " + waitingTimeoutTimes + " 次" : ""));
 						if (!waitingForLoginScan) {
 							waitingForLoginScan = true;
 							triggerWaitingForScanListener(waitingForLoginScan);
@@ -738,13 +764,13 @@ public class WechatHelper {
 					} else if (ResultEnum.WAIT_TIMEOUT.getCode().equals(status)) {
 						waitingTimeoutTimes++;
 						if (waitingTimeoutTimes < waitingTimeoutLimit) {
-							logger.info(ResultEnum.WAIT_TIMEOUT.getMessage());
+							logger.warn(ResultEnum.WAIT_TIMEOUT.getMessage());
 							if (!waitingForLoginScan) {
 								waitingForLoginScan = true;
 								triggerWaitingForScanListener(waitingForLoginScan);
 							}
 						} else {
-							logger.info(ResultEnum.WAIT_TIMEOUT.getMessage() + " 太长，尝试重新登陆");
+							logger.warn(ResultEnum.WAIT_TIMEOUT.getMessage() + " 太长，尝试重新登陆");
 							if (waitingForLoginScan) {
 								waitingForLoginScan = false;
 								triggerWaitingForScanListener(waitingForLoginScan);
@@ -755,6 +781,8 @@ public class WechatHelper {
 						break;
 					}
 					Thread.sleep(checkInterval);
+				} catch (InterruptedException ex) {
+					logger.warn("登陆中断", ex.getMessage());
 				} catch (Exception e) {
 					logger.warn("微信登陆异常！", e);
 					break;
@@ -786,8 +814,8 @@ public class WechatHelper {
 		HttpEntity entity = core.getMyHttpClient().doPost(url, JSON.toJSONString(paramMap));
 		try {
 			String result = EntityUtils.toString(entity, Consts.UTF_8);
-			logger.info("------ initBasicInfo ------");
-			// logger.info(result);
+			logger.debug("------ initBasicInfo ------");
+			// logger.debug(result);
 			//
 			JSONObject obj = JSON.parseObject(result);
 			JSONObject baseResponse = obj.getJSONObject("BaseResponse");
@@ -862,11 +890,11 @@ public class WechatHelper {
 				//
 				return true;
 			} else {
-				logger.warn("初始化出错");
+				logger.warn("信息初始化失败");
 				return false;
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			logger.warn("信息初始化失败", e.getMessage());
 			return false;
 		}
 	}
@@ -890,12 +918,12 @@ public class WechatHelper {
 			HttpEntity entity = core.getMyHttpClient().doPost(url, paramStr);
 			@SuppressWarnings("unused")
 			String result = EntityUtils.toString(entity, Consts.UTF_8);
-			// logger.info("------ wxStatusNotify ------");
-			// logger.info(result);
+			// logger.debug("------ wxStatusNotify ------");
+			// logger.debug(result);
 			//
 			return true;
 		} catch (Exception e) {
-			logger.warn("微信状态通知接口失败！", e);
+			logger.warn("状态通知接口失败！", e.getMessage());
 			return false;
 		}
 	}
@@ -945,13 +973,13 @@ public class WechatHelper {
 		} else if (userName.startsWith("@@")) { // 群聊
 			userType = MsgUserType.Group.getValue();
 			core.addGroupId(userName);
-			logger.info("群组：" + nickName);
+			logger.debug("群组：" + nickName);
 		} else if (userName.equals(core.getUserName())) { // 自己
 			//
 		} else { // 普通联系人
 			userType = MsgUserType.Friend.getValue();
 			core.addContactId(userName);
-			logger.info("联系人：" + nickName);
+			logger.debug("联系人：" + nickName);
 		}
 		//
 		msgUser.userType = userType;
@@ -1024,22 +1052,19 @@ public class WechatHelper {
 			} else if (tmpMsgType.equals(MsgTypeValueEnum.MSGTYPE_MEDIA.getValue())) { // 多媒体消息
 				retMsg.put("Type", MsgTypeCodeEnum.MEDIA.getCode());
 			} else if (tmpMsgType.equals(MsgTypeValueEnum.MSGTYPE_STATUSNOTIFY.getValue())) {// phone
-				// init
 				// 微信初始化消息
-				logger.info("---- ----" + MsgTypeValueEnum.MSGTYPE_STATUSNOTIFY.getName());
-				logger.info("");
-
+				logger.debug("---- ----" + MsgTypeValueEnum.MSGTYPE_STATUSNOTIFY.getName());
 			} else if (tmpMsgType.equals(MsgTypeValueEnum.MSGTYPE_SYS.getValue())) {// 系统消息
 				retMsg.put("Type", MsgTypeCodeEnum.SYS.getCode());
 			} else if (tmpMsgType.equals(MsgTypeValueEnum.MSGTYPE_RECALLED.getValue())) { // 撤回消息
 
 			} else {
-				logger.info("Useless msg");
+				logger.debug("无用的消息");
 			}
 			retMsgList.add(retMsg);
 			//
-			logger.info(fromUserName + " => " + toUserName + " 的 " + retMsg.getString("Type") + " 的消息：");
-			logger.info(retMsg.toJSONString());
+			logger.debug(fromUserName + " => " + toUserName + " 的 " + retMsg.getString("Type") + " 的消息：");
+			logger.debug(retMsg.toJSONString());
 		}
 		return retMsgList;
 	}
@@ -1094,7 +1119,7 @@ public class WechatHelper {
 			}
 			return;
 		} catch (Exception e) {
-			logger.warn(e.getMessage(), e);
+			logger.error("获取好友失败", e.getMessage());
 		}
 		return;
 	}
@@ -1132,7 +1157,7 @@ public class WechatHelper {
 				}
 			}
 		} catch (Exception e) {
-			logger.warn(e.getMessage());
+			logger.error("获取群组失败", e.getMessage());
 		}
 	}
 
@@ -1279,7 +1304,7 @@ public class WechatHelper {
 				}
 			}
 		} catch (Exception e) {
-			logger.warn(e.getMessage());
+			logger.warn("同步检查失败", e.getMessage());
 		}
 		return resultMap;
 	}
@@ -1319,7 +1344,7 @@ public class WechatHelper {
 				loginInfo.put(StorageLoginInfoEnum.synckey.getKey(), synckey.substring(0, synckey.length() - 1));// 1_656161336|2_656161626|3_656161313|11_656159955|13_656120033|201_1492273724|1000_1492265953|1001_1492250432|1004_1491805192
 			}
 		} catch (Exception e) {
-			logger.warn(e.getMessage());
+			logger.warn("拉取同步消息失败", e.getMessage());
 		}
 		return result;
 	}
@@ -1356,7 +1381,7 @@ public class WechatHelper {
 							break;
 						}
 						//
-						logger.info("------ heatbeat ------");
+						logger.debug("------ ... ------");
 						Map<String, String> resultMap = doSyncCheck();
 						String retcode = resultMap.get("retcode");
 						String selector = resultMap.get("selector");
@@ -1365,14 +1390,14 @@ public class WechatHelper {
 							logger.warn(RetCodeEnum.UNKOWN.getMessage());
 						} else if (retcode.equals(RetCodeEnum.NOT_LOGIN_WARN.getCode())) { // 未登录或已退出
 							message = RetCodeEnum.NOT_LOGIN_WARN.getMessage();
-							logger.info(message);
+							logger.warn(message);
 							core.setAlive(false);
 							core.setLastMessage(message);
 							readyFlag = false;
 							break;
 						} else if (retcode.equals(RetCodeEnum.LOGIN_OTHERWHERE.getCode())) { // 其它地方登陆
 							message = RetCodeEnum.LOGIN_OTHERWHERE.getMessage();
-							logger.info(message);
+							logger.warn(message);
 							core.setAlive(false);
 							core.setLastMessage(message);
 							readyFlag = false;
@@ -1391,9 +1416,13 @@ public class WechatHelper {
 									JSONArray msgList = new JSONArray();
 									msgList = msgObj.getJSONArray("AddMsgList");
 									msgList = filterWxMsg(msgList);
-									for (int j = 0; j < msgList.size(); j++) {
-										BaseMsg baseMsg = JSON.toJavaObject(msgList.getJSONObject(j), BaseMsg.class);
-										core.getMsgList().add(baseMsg);
+									if (core.isHandleRecvMsgs()) {
+										for (int j = 0; j < msgList.size(); j++) {
+											BaseMsg baseMsg = JSON.toJavaObject(msgList.getJSONObject(j), BaseMsg.class);
+											core.getRecvMsgList().add(baseMsg);
+										}
+									} else {
+										logger.info("忽略了 " + msgList.size() + " 条收到的消息");
 									}
 								} catch (Exception e) {
 									logger.warn(e.getMessage());
@@ -1418,9 +1447,11 @@ public class WechatHelper {
 							}
 						} else {
 							pullSyncMsgs();
-							logger.info("------ Other info ------");
-							// logger.info(JSONObject.toJSONString(obj));
+							logger.debug("------ Other info ------");
+							// logger.debug(JSONObject.toJSONString(obj));
 						}
+					} catch (InterruptedException ex) {
+						logger.warn("心跳中断", ex.getMessage());
 					} catch (Exception ex) {
 						message = "异常：" + ex.getMessage();
 						logger.warn(message);
@@ -1469,7 +1500,7 @@ public class WechatHelper {
 							break;
 						}
 						//
-						logger.info("------ datamointor ------");
+						logger.debug("------ 010 ------");
 						boolean groupSyncFlag = false;
 						if (core.hasNoneSyncGroups()) {
 							fetchGroups();
@@ -1479,6 +1510,8 @@ public class WechatHelper {
 						if (groupSyncFlag || core.hasDataChanges()) {
 							core.saveStoreData();
 						}
+					} catch (InterruptedException ex) {
+						logger.warn("数据监视中断", ex.getMessage());
 					} catch (Exception ex) {
 						message = "异常：" + ex.getMessage();
 						break;
@@ -1516,7 +1549,7 @@ public class WechatHelper {
 				//
 				result = true;
 			} catch (Exception e) {
-				logger.warn(e.getMessage());
+				logger.warn("退出登陆失败", e.getMessage());
 			}
 			// 重置所有数据
 			core.reset();
@@ -1681,7 +1714,7 @@ public class WechatHelper {
 			//
 			return headImgBytes;
 		} catch (Exception e) {
-			logger.warn(e.getMessage());
+			logger.warn("获取的头像失败", e);
 			return null;
 		}
 	}

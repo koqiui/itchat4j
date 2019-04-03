@@ -23,7 +23,8 @@ import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 import org.apache.log4j.Logger;
 
-import cn.open.itchat4j.core.CookieStoreHolder;
+import cn.open.itchat4j.core.HttpStoreHolder;
+import cn.open.itchat4j.enums.UserAgentType;
 
 /**
  * HTTP访问类，对Apache HttpClient进行简单封装，适配器模式
@@ -37,13 +38,13 @@ public class MyHttpClient {
 	private static Logger logger = Logger.getLogger(MyHttpClient.class);
 
 	//
-	private CookieStoreHolder cookieStoreHolder;
+	private HttpStoreHolder httpStoreHolder;
 	private CloseableHttpClient httpClient;
 	private CookieStore cookieStore;
 
-	public MyHttpClient(CookieStoreHolder cookieStoreHolder) {
-		this.cookieStoreHolder = cookieStoreHolder;
-		this.cookieStore = this.cookieStoreHolder.getCookieStore();
+	public MyHttpClient(HttpStoreHolder httpStoreHolder) {
+		this.httpStoreHolder = httpStoreHolder;
+		this.cookieStore = this.httpStoreHolder.getCookieStore();
 		if (this.cookieStore == null) {
 			throw new IllegalArgumentException("cookieStore 不能为 null");
 		}
@@ -82,7 +83,8 @@ public class MyHttpClient {
 			if (!redirect) {
 				httpGet.setConfig(RequestConfig.custom().setRedirectsEnabled(false).build()); // 禁止重定向
 			}
-			httpGet.setHeader("User-Agent", Config.USER_AGENT);
+			UserAgentType userAgentType = UserAgentType.Win.name().equalsIgnoreCase(this.httpStoreHolder.getUserAgentType()) ? UserAgentType.Win : UserAgentType.Mac;
+			httpGet.setHeader("User-Agent", UserAgentType.Win == userAgentType ? Config.USER_AGENT_WIN : Config.USER_AGENT_MAC);
 			if (headerMap != null) {
 				Set<Entry<String, String>> entries = headerMap.entrySet();
 				for (Entry<String, String> entry : entries) {
@@ -92,11 +94,11 @@ public class MyHttpClient {
 			CloseableHttpResponse response = httpClient.execute(httpGet);
 			entity = response.getEntity();
 		} catch (ClientProtocolException e) {
-			logger.info(e.getMessage());
+			logger.error(e.getMessage());
 		} catch (IOException e) {
-			logger.info(e.getMessage());
+			logger.error(e.getMessage());
 		} finally {
-			this.cookieStoreHolder.syncCookieStore(cookieStore);
+			this.httpStoreHolder.syncCookieStore(cookieStore);
 		}
 
 		return entity;
@@ -119,15 +121,16 @@ public class MyHttpClient {
 			httpPost = new HttpPost(url);
 			httpPost.setEntity(params);
 			httpPost.setHeader("Content-type", "application/json; charset=utf-8");
-			httpPost.setHeader("User-Agent", Config.USER_AGENT);
+			UserAgentType userAgentType = UserAgentType.Win.name().equalsIgnoreCase(this.httpStoreHolder.getUserAgentType()) ? UserAgentType.Win : UserAgentType.Mac;
+			httpPost.setHeader("User-Agent", UserAgentType.Win == userAgentType ? Config.USER_AGENT_WIN : Config.USER_AGENT_MAC);
 			CloseableHttpResponse response = httpClient.execute(httpPost);
 			entity = response.getEntity();
 		} catch (ClientProtocolException e) {
-			logger.info(e.getMessage());
+			logger.error(e.getMessage());
 		} catch (IOException e) {
-			logger.info(e.getMessage());
+			logger.error(e.getMessage());
 		} finally {
-			this.cookieStoreHolder.syncCookieStore(cookieStore);
+			this.httpStoreHolder.syncCookieStore(cookieStore);
 		}
 
 		return entity;
@@ -145,15 +148,16 @@ public class MyHttpClient {
 	public HttpEntity doPostFile(String url, HttpEntity reqEntity) {
 		HttpEntity entity = null;
 		HttpPost httpPost = new HttpPost(url);
-		httpPost.setHeader("User-Agent", Config.USER_AGENT);
+		UserAgentType userAgentType = UserAgentType.Win.name().equalsIgnoreCase(this.httpStoreHolder.getUserAgentType()) ? UserAgentType.Win : UserAgentType.Mac;
+		httpPost.setHeader("User-Agent", UserAgentType.Win == userAgentType ? Config.USER_AGENT_WIN : Config.USER_AGENT_MAC);
 		httpPost.setEntity(reqEntity);
 		try {
 			CloseableHttpResponse response = httpClient.execute(httpPost);
 			entity = response.getEntity();
 		} catch (Exception e) {
-			logger.info(e.getMessage());
+			logger.error(e.getMessage());
 		} finally {
-			this.cookieStoreHolder.syncCookieStore(cookieStore);
+			this.httpStoreHolder.syncCookieStore(cookieStore);
 		}
 		return entity;
 	}

@@ -20,6 +20,7 @@ import com.alibaba.fastjson.annotation.JSONField;
 
 import cn.open.itchat4j.beans.BaseMsg;
 import cn.open.itchat4j.enums.MsgUserType;
+import cn.open.itchat4j.enums.UserAgentType;
 import cn.open.itchat4j.enums.params.BaseParamEnum;
 import cn.open.itchat4j.utils.MyHttpClient;
 
@@ -31,7 +32,7 @@ import cn.open.itchat4j.utils.MyHttpClient;
  * @version 1.0
  * 
  */
-public class Core implements Serializable, CookieStoreHolder {
+public class Core implements Serializable, HttpStoreHolder {
 	private static final long serialVersionUID = 1L;
 	//
 	private static Logger logger = LoggerFactory.getLogger(Core.class);
@@ -51,6 +52,7 @@ public class Core implements Serializable, CookieStoreHolder {
 			//
 			{
 				this.put("cookieStore", new BasicCookieStore());
+				this.put("userAgentType", UserAgentType.Mac.name());
 				//
 				this.put("loginInfo", new HashMap<String, Object>(0));
 				//
@@ -84,9 +86,29 @@ public class Core implements Serializable, CookieStoreHolder {
 		return this.dataStore.get("cookieStore");
 	}
 
+	@Override
+	public String getUserAgentType() {
+		return this.dataStore.get("userAgentType");
+	}
+
+	// 切换浏览器的UserAgent
+	public void switchUserAgentType() {
+		String newUserAgentType = null;
+		if (UserAgentType.Mac.name().equalsIgnoreCase(this.getUserAgentType())) {
+			newUserAgentType = UserAgentType.Win.name();
+		} else {
+			newUserAgentType = UserAgentType.Mac.name();
+		}
+		this.dataStore.set("userAgentType", newUserAgentType);
+		logger.info("Http请求UserAgent已切换为 " + newUserAgentType + " 版");
+	}
+
 	private boolean loadStoreData() {
 		return this.dataStore.load();
 	}
+
+	@JSONField(serialize = false)
+	private transient Queue<BaseMsg> recvMsgList = new ConcurrentLinkedQueue<BaseMsg>();
 
 	@JSONField(serialize = false)
 	private transient ReentrantLock myHttpClientLock = new ReentrantLock();
@@ -107,6 +129,21 @@ public class Core implements Serializable, CookieStoreHolder {
 
 	public void setStateListener(CoreStateListener stateListener) {
 		this.stateListener = stateListener;
+	}
+
+	// 是否处理接收的消息（否则就不要放入接收的消息队列里）
+	private volatile boolean handleRecvMsgs = true;
+
+	public boolean isHandleRecvMsgs() {
+		return handleRecvMsgs;
+	}
+
+	public void setHandleRecvMsgs(boolean handleRecvMsgs) {
+		this.handleRecvMsgs = handleRecvMsgs;
+		//
+		if (!handleRecvMsgs) {
+			this.recvMsgList.clear();
+		}
 	}
 
 	private volatile boolean alive = false;
@@ -167,9 +204,6 @@ public class Core implements Serializable, CookieStoreHolder {
 		return result;
 	}
 
-	@JSONField(serialize = false)
-	private transient Queue<BaseMsg> msgList = new ConcurrentLinkedQueue<BaseMsg>();
-
 	/**
 	 * 请求参数
 	 */
@@ -216,7 +250,7 @@ public class Core implements Serializable, CookieStoreHolder {
 	}
 
 	public void reset() {
-		this.msgList.clear();
+		this.recvMsgList.clear();
 		//
 		dataStore.clear();
 		dataStore.save();
@@ -258,7 +292,7 @@ public class Core implements Serializable, CookieStoreHolder {
 		this.setPublicUserIdList((List<String>) initValues.get("publicUserIdList"));
 		this.setSpecialUserIdList((List<String>) initValues.get("specialUserIdList"));
 		//
-		this.msgList.clear();
+		this.recvMsgList.clear();
 	}
 
 	public String getLastMessage() {
@@ -610,12 +644,12 @@ public class Core implements Serializable, CookieStoreHolder {
 		return retList;
 	}
 
-	public Queue<BaseMsg> getMsgList() {
-		return msgList;
+	public Queue<BaseMsg> getRecvMsgList() {
+		return recvMsgList;
 	}
 
-	public void setMsgList(Queue<BaseMsg> msgList) {
-		this.msgList = msgList;
+	public void setRecvMsgList(Queue<BaseMsg> recvMsgList) {
+		this.recvMsgList = recvMsgList;
 	}
 
 }

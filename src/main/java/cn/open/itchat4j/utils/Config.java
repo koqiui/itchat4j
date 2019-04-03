@@ -2,6 +2,7 @@ package cn.open.itchat4j.utils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import cn.open.itchat4j.enums.OsNameEnum;
 
@@ -20,8 +21,9 @@ public class Config {
 	public static final String picDir = "D://itchat4j";
 	public static final String BASE_URL = "https://login.weixin.qq.com";
 	public static final String DEFAULT_QR = "QR.jpg";
-	public static final String USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.71 Safari/537.36";
-
+	//
+	public static final String USER_AGENT_MAC = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.71 Safari/537.36";
+	public static final String USER_AGENT_WIN = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.186 Safari/53";
 	/** 参考 */
 	public static final ArrayList<String> API_SPECIAL_USER = new ArrayList<String>(
 			Arrays.asList("filehelper", "weibo", "qqmail", "fmessage", "tmessage", "qmessage", "qqsync", "floatbottle", "lbsapp", "shakeapp", "medianote", "qqfriend", "readerapp", "blogapp", "facebookapp", "masssendapp", "meishiapp",

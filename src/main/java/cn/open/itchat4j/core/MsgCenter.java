@@ -39,9 +39,9 @@ public class MsgCenter {
 		Thread theThread = new Thread() {
 			@Override
 			public void run() {
-				Queue<BaseMsg> msgList = core.getMsgList();
+				Queue<BaseMsg> recvMsgList = core.getRecvMsgList();
 				while (true) {
-					BaseMsg msg = msgList.poll();
+					BaseMsg msg = recvMsgList.poll();
 					if (msg != null && msg.getContent() != null) {
 						if (msg.getContent().length() > 0) {
 							if (msg.getTypeCode() != null) {
