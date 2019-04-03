@@ -43,22 +43,23 @@ public class DownloadTools {
 		Map<String, String> headerMap = new HashMap<String, String>();
 		List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
 		String url = "";
+		Map<String, Object> loginInfo = core.getLoginInfo();
 		if (type.equals(MsgTypeCodeEnum.PIC.getCode())) {
-			url = String.format(URLEnum.WEB_WX_GET_MSG_IMG.getUrl(), (String) core.getLoginInfo().get("url"));
+			url = String.format(URLEnum.WEB_WX_GET_MSG_IMG.getUrl(), (String) loginInfo.get("url"));
 		} else if (type.equals(MsgTypeCodeEnum.VOICE.getCode())) {
-			url = String.format(URLEnum.WEB_WX_GET_VOICE.getUrl(), (String) core.getLoginInfo().get("url"));
+			url = String.format(URLEnum.WEB_WX_GET_VOICE.getUrl(), (String) loginInfo.get("url"));
 		} else if (type.equals(MsgTypeCodeEnum.VIEDO.getCode())) {
 			headerMap.put("Range", "bytes=0-");
-			url = String.format(URLEnum.WEB_WX_GET_VIEDO.getUrl(), (String) core.getLoginInfo().get("url"));
+			url = String.format(URLEnum.WEB_WX_GET_VIEDO.getUrl(), (String) loginInfo.get("url"));
 		} else if (type.equals(MsgTypeCodeEnum.MEDIA.getCode())) {
 			headerMap.put("Range", "bytes=0-");
-			url = String.format(URLEnum.WEB_WX_GET_MEDIA.getUrl(), (String) core.getLoginInfo().get("fileUrl"));
+			url = String.format(URLEnum.WEB_WX_GET_MEDIA.getUrl(), (String) loginInfo.get("fileUrl"));
 			params.add(new BasicNameValuePair("sender", msg.getFromUserName()));
 			params.add(new BasicNameValuePair("mediaid", msg.getMediaId()));
 			params.add(new BasicNameValuePair("filename", msg.getFileName()));
 		}
 		params.add(new BasicNameValuePair("msgid", msg.getNewMsgId()));
-		params.add(new BasicNameValuePair("skey", (String) core.getLoginInfo().get("skey")));
+		params.add(new BasicNameValuePair("skey", (String) loginInfo.get("skey")));
 		HttpEntity entity = core.getMyHttpClient().doGet(url, params, true, headerMap);
 		try {
 			OutputStream out = new FileOutputStream(path);

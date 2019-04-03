@@ -527,7 +527,9 @@ public class WechatHelper {
 							retUuid = core.getUuid();
 							if (retUuid == null) {// 状态错乱，等待扫码，但又获取不到uuid
 								// 尝试模拟切换设备
-								core.getLoginInfo().put("deviceid", this.createDeviceId());
+								Map<String, Object> loginInfo = core.getLoginInfo();
+								loginInfo.put("deviceid", this.createDeviceId());
+								core.setLoginInfo(loginInfo);// 同步loginInfo
 								core.switchUserAgentType();
 							}
 							if (!waitingForLoginScan) {
@@ -658,10 +660,6 @@ public class WechatHelper {
 			Map<String, Object> loginInfo = core.getLoginInfo();
 			String url = (String) loginInfo.get("url");
 			String wxuin = (String) loginInfo.get("wxuin");
-			String deviceId = (String) loginInfo.get("deviceid");
-			if (deviceId == null) {
-				loginInfo.put("deviceid", this.createDeviceId());
-			}
 			if (url != null && wxuin != null) {
 				url = String.format(URLEnum.WEB_WX_PUSH_LOGIN.getUrl(), url, wxuin);
 				HttpEntity entity = core.getMyHttpClient().doGet(url, null, true, null);
@@ -681,6 +679,7 @@ public class WechatHelper {
 					logger.error(RetCodeEnum.DEVICE_FAIL.getMessage());
 					// 尝试模拟切换设备
 					loginInfo.put("deviceid", this.createDeviceId());
+					core.setLoginInfo(loginInfo);// 同步loginInfo
 					core.switchUserAgentType();
 				} else {
 					logger.warn(resutJson.getString("msg"));
@@ -847,6 +846,7 @@ public class WechatHelper {
 
 				// 1_661706053|2_661706420|3_661706415|1000_1494151022
 				loginInfo.put(StorageLoginInfoEnum.synckey.getKey(), synckey.substring(0, synckey.length() - 1));// 1_656161336|2_656161626|3_656161313|11_656159955|13_656120033|201_1492273724|1000_1492265953|1001_1492250432|1004_1491805192
+				core.setLoginInfo(loginInfo);// 同步loginInfo
 				String userName = userSelf.getString("UserName");
 				String nickName = userSelf.getString("NickName");
 				// 反转别名
@@ -1238,6 +1238,7 @@ public class WechatHelper {
 			}
 			loginInfo.put("deviceid", deviceid); // 生成15位随机数
 			loginInfo.put("BaseRequest", new ArrayList<String>());
+			core.setLoginInfo(loginInfo);// 同步loginInfo
 			String text = "";
 
 			try {
@@ -1260,6 +1261,7 @@ public class WechatHelper {
 				loginInfo.put(StorageLoginInfoEnum.wxsid.getKey(), doc.getElementsByTagName(StorageLoginInfoEnum.wxsid.getKey()).item(0).getFirstChild().getNodeValue());
 				loginInfo.put(StorageLoginInfoEnum.wxuin.getKey(), doc.getElementsByTagName(StorageLoginInfoEnum.wxuin.getKey()).item(0).getFirstChild().getNodeValue());
 				loginInfo.put(StorageLoginInfoEnum.pass_ticket.getKey(), doc.getElementsByTagName(StorageLoginInfoEnum.pass_ticket.getKey()).item(0).getFirstChild().getNodeValue());
+				core.setLoginInfo(loginInfo);// 同步loginInfo
 			}
 			return null;
 		}
@@ -1342,6 +1344,7 @@ public class WechatHelper {
 				}
 				String synckey = sb.toString();
 				loginInfo.put(StorageLoginInfoEnum.synckey.getKey(), synckey.substring(0, synckey.length() - 1));// 1_656161336|2_656161626|3_656161313|11_656159955|13_656120033|201_1492273724|1000_1492265953|1001_1492250432|1004_1491805192
+				core.setLoginInfo(loginInfo);// 同步loginInfo
 			}
 		} catch (Exception e) {
 			logger.warn("拉取同步消息失败", e.getMessage());

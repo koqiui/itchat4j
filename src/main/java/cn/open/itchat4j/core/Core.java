@@ -212,9 +212,10 @@ public class Core implements Serializable, HttpStoreHolder {
 			private static final long serialVersionUID = 1L;
 			//
 			{
+				Map<String, Object> loginInfo = getLoginInfo();
 				Map<String, String> map = new HashMap<String, String>();
 				for (BaseParamEnum baseRequest : BaseParamEnum.values()) {
-					Object value = getLoginInfo().get(baseRequest.value());
+					Object value = loginInfo.get(baseRequest.value());
 					String valueStr = value == null ? null : value.toString();
 					map.put(baseRequest.param(), valueStr);
 				}
@@ -331,6 +332,7 @@ public class Core implements Serializable, HttpStoreHolder {
 		}
 	}
 
+	/** 注意获取的loginInfo一旦变动，要及时调用setLoginInfo回写 */
 	public Map<String, Object> getLoginInfo() {
 		return dataStore.get("loginInfo");
 	}
@@ -539,7 +541,7 @@ public class Core implements Serializable, HttpStoreHolder {
 		this.lastGroupSyncTs = System.currentTimeMillis();
 	}
 
-	/** 群聊id列表 注意不要在返回的数据上修改（不能直到数据变更） */
+	/** 群聊id列表 注意一旦对数据进行了修改（要及时调用setGroupIdList进行同步） */
 	public List<String> getGroupIdList() {
 		return dataStore.get("groupIdList");
 	}
