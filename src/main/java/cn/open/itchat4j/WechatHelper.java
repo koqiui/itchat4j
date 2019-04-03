@@ -625,13 +625,13 @@ public class WechatHelper {
 		try {
 			CommonTools.makeDirs(qrPathDir);
 			//
-			String qrPath = qrPathDir + File.separator + "loginQRCode.jpg";
-			OutputStream out = new FileOutputStream(qrPath);
+			File qrFile = new File(qrPathDir, Config.LOGIN_QRCODE_FILE_NAME);
+			OutputStream out = new FileOutputStream(qrFile);
 			out.write(qrImageBytes);
 			out.flush();
 			out.close();
 			try {
-				CommonTools.printQr(qrPath); // 打开登陆二维码图片
+				CommonTools.printQr(qrFile.getAbsolutePath()); // 打开登陆二维码图片
 			} catch (Exception e) {
 				logger.warn("打开登陆二维码失败", e.getMessage());
 			}
