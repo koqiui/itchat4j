@@ -202,24 +202,29 @@ public class WechatHelper {
 		}
 	}
 
-	private ReentrantLock isRunningLock = new ReentrantLock();
-	private volatile boolean isRunning = false;
+	private ReentrantLock runningFlagLock = new ReentrantLock();
+	private volatile boolean runningFlag = false;
+
+	/** 是否运行中 */
+	public boolean isRunning() {
+		return runningFlag;
+	}
 
 	// 3
 	/** 启动节点，启动后才能处理在线交互 */
 	public void startup() {
 		try {
-			isRunningLock.lock();
+			runningFlagLock.lock();
 			//
-			if (isRunning) {
+			if (runningFlag) {
 				logger.warn("WechatHelper正在运行中");
 				return;
 			}
-			isRunning = true;
+			runningFlag = true;
 			//
 			logger.info("WechatHelper 已启动");
 		} finally {
-			isRunningLock.unlock();
+			runningFlagLock.unlock();
 		}
 	}
 
@@ -227,26 +232,28 @@ public class WechatHelper {
 	/** 应用停止时执行（下线并停止各线程） */
 	public void shutdown() {
 		try {
-			isRunningLock.lock();
+			runningFlagLock.lock();
 			//
-			if (!isRunning) {
+			if (!runningFlag) {
 				logger.warn("WechatHelper不在运行中");
 				return;
 			}
-			isRunning = false;
+			runningFlag = false;
 			//
 			this.stopHeatbeat();
 			this.stopDataMonitor();
 			//
 			if (core.isAlive()) {
-				boolean groupSyncFlag = false;
-				if (core.hasNoneSyncGroups()) {
-					fetchGroups();
-					core.setLastSyncGroupTs();
-					groupSyncFlag = true;
-				}
-				if (groupSyncFlag || core.hasDataChanges()) {
-					core.saveStoreData();
+				if (core.getUserSelf() != null) {
+					boolean groupSyncFlag = false;
+					if (core.hasNoneSyncGroups()) {
+						fetchGroups();
+						core.setLastSyncGroupTs();
+						groupSyncFlag = true;
+					}
+					if (groupSyncFlag || core.hasDataChanges()) {
+						core.saveStoreData();
+					}
 				}
 				//
 				core.setAlive(false);
@@ -261,7 +268,7 @@ public class WechatHelper {
 			//
 			logger.info("WechatHelper 已停止");
 		} finally {
-			isRunningLock.unlock();
+			runningFlagLock.unlock();
 		}
 	}
 
@@ -299,7 +306,7 @@ public class WechatHelper {
 		// 缓存用于自动重新登陆
 		this.lastQrImageDir = qrImageDir;
 		//
-		if (!isRunning) {
+		if (!runningFlag) {
 			logger.warn("Helper未启动或已停止，不能登陆");
 			return;
 		}
@@ -321,7 +328,7 @@ public class WechatHelper {
 				logger.warn("等待扫码登陆确认中断", e.getMessage());
 			}
 			//
-			if (!isRunning) {
+			if (!runningFlag) {
 				return;
 			}
 			//
@@ -333,7 +340,7 @@ public class WechatHelper {
 		} else {
 			int tryTimes = 15;
 			for (int count = 0; count < tryTimes;) {
-				if (!isRunning) {
+				if (!runningFlag) {
 					return;
 				}
 				//
@@ -352,12 +359,12 @@ public class WechatHelper {
 						logger.warn("获取UUID中断", e.getMessage());
 					}
 					//
-					if (!isRunning) {
+					if (!runningFlag) {
 						return;
 					}
 				}
 				//
-				if (!isRunning) {
+				if (!runningFlag) {
 					return;
 				}
 				//
@@ -387,7 +394,7 @@ public class WechatHelper {
 			this.doLogin(qrImageDir);
 		}
 		//
-		if (!isRunning) {
+		if (!runningFlag) {
 			return;
 		}
 		//
@@ -587,7 +594,7 @@ public class WechatHelper {
 	 * @return
 	 */
 	public String getQrImageUrl(boolean refresh) {
-		if (refresh && this.isRunning && (core.isAlive() || this.tryingToLogin || this.waitingForLoginScan)) {
+		if (refresh && this.runningFlag && (core.isAlive() || this.tryingToLogin || this.waitingForLoginScan)) {
 			return this.getQrImageUrl(null);
 		}
 		return core.getUuid() == null ? null : this.getQrImageUrl(core.getUuid());
@@ -714,7 +721,7 @@ public class WechatHelper {
 			int checkInterval = 1000;
 			int waitingTimeoutTimes = 0;
 			int waitingTimeoutLimit = 5;
-			while (!hasLoggedIn && isRunning) {
+			while (!hasLoggedIn && runningFlag) {
 				try {
 					if (!waitingForLoginScan) {
 						String uuid = this.getPushLoginUuid();
@@ -775,12 +782,16 @@ public class WechatHelper {
 								triggerWaitingForScanListener(waitingForLoginScan);
 							}
 						} else {
-							logger.warn(ResultEnum.WAIT_TIMEOUT.getMessage() + " 太长，尝试重新登陆");
-							if (waitingForLoginScan) {
-								waitingForLoginScan = false;
-								triggerWaitingForScanListener(waitingForLoginScan);
-								break;
+							String message = ResultEnum.WAIT_TIMEOUT.getMessage() + " 太长，已强制关闭";
+							logger.error(message);
+							core.setLastMessage(message);
+							this.shutdown();
+							//
+							if (this.stateListener != null) {
+								this.stateListener.onLoginFail(core.getNodeName(), message);
 							}
+							//
+							return false;
 						}
 					} else {
 						break;
@@ -1107,6 +1118,10 @@ public class WechatHelper {
 	 */
 	private void fetchContacts() {
 		Map<String, Object> loginInfo = core.getLoginInfo();
+		if (loginInfo.isEmpty()) {
+			logger.warn("登陆用户信息无效，无法获取联系人信息");
+			return;
+		}
 		String url = String.format(URLEnum.WEB_WX_GET_CONTACT.getUrl(), loginInfo.get(StorageLoginInfoEnum.url.getKey()));
 		Map<String, Object> paramMap = core.newParamMap();
 		HttpEntity entity = core.getMyHttpClient().doPost(url, JSON.toJSONString(paramMap));
@@ -1150,11 +1165,9 @@ public class WechatHelper {
 				JSONObject member = (JSONObject) iterator.next();
 				this.addWxMember(member);
 			}
-			return;
 		} catch (Exception e) {
 			logger.error("获取好友失败", e.getMessage());
 		}
-		return;
 	}
 
 	/**
@@ -1162,6 +1175,10 @@ public class WechatHelper {
 	 */
 	private void fetchGroups() {
 		Map<String, Object> loginInfo = core.getLoginInfo();
+		if (loginInfo.isEmpty()) {
+			logger.warn("登陆用户信息无效，无法获取群组信息");
+			return;
+		}
 		String url = String.format(URLEnum.WEB_WX_BATCH_GET_CONTACT.getUrl(), loginInfo.get(StorageLoginInfoEnum.url.getKey()), new Date().getTime(), loginInfo.get(StorageLoginInfoEnum.pass_ticket.getKey()));
 		Map<String, Object> paramMap = core.newParamMap();
 		List<String> groupNames = core.getGroupIdList();
@@ -1310,9 +1327,13 @@ public class WechatHelper {
 	 * 
 	 */
 	private Map<String, String> doSyncCheck() {
-		Map<String, String> resultMap = new HashMap<String, String>();
-		// 组装请求URL和参数
 		Map<String, Object> loginInfo = core.getLoginInfo();
+		if (loginInfo.isEmpty()) {
+			throw new IllegalStateException("登陆用户信息无效");
+		}
+		// 组装请求URL和参数
+		Map<String, String> resultMap = new HashMap<String, String>();
+		//
 		String url = loginInfo.get(StorageLoginInfoEnum.syncUrl.getKey()) + URLEnum.SYNC_CHECK_URL.getUrl();
 		List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
 		for (BaseParamEnum baseRequest : BaseParamEnum.values()) {
@@ -1352,8 +1373,12 @@ public class WechatHelper {
 	 * @return
 	 */
 	private JSONObject pullSyncMsgs() {
-		JSONObject result = null;
 		Map<String, Object> loginInfo = core.getLoginInfo();
+		if (loginInfo.isEmpty()) {
+			throw new IllegalStateException("登陆用户信息无效");
+		}
+		//
+		JSONObject result = null;
 		String url = String.format(URLEnum.WEB_WX_SYNC_URL.getUrl(), loginInfo.get(StorageLoginInfoEnum.url.getKey()), loginInfo.get(StorageLoginInfoEnum.wxsid.getKey()), loginInfo.get(StorageLoginInfoEnum.skey.getKey()),
 				loginInfo.get(StorageLoginInfoEnum.pass_ticket.getKey()));
 		Map<String, Object> paramMap = core.newParamMap();
@@ -1416,7 +1441,7 @@ public class WechatHelper {
 		heatbeatThead = new Thread() {
 			public void run() {
 				String message = null;
-				while (isRunning) {
+				while (runningFlag) {
 					try {
 						Thread.sleep(heatbeatInterval);
 						//
@@ -1553,7 +1578,7 @@ public class WechatHelper {
 		dataMonitorThead = new Thread() {
 			public void run() {
 				String message = null;
-				while (isRunning && dataMonitorEnabled) {
+				while (runningFlag && dataMonitorEnabled) {
 					try {
 						Thread.sleep(dataMonitorInterval);
 						//
@@ -1598,22 +1623,25 @@ public class WechatHelper {
 		if (core.isAlive()) {
 			// 请求退出登陆
 			Map<String, Object> loginInfo = core.getLoginInfo();
-			String url = String.format(URLEnum.WEB_WX_LOGOUT.getUrl(), loginInfo.get(StorageLoginInfoEnum.url.getKey()));
-			List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
-			params.add(new BasicNameValuePair("redirect", "1"));
-			params.add(new BasicNameValuePair("type", "1"));
-			params.add(new BasicNameValuePair("skey", (String) loginInfo.get(StorageLoginInfoEnum.skey.getKey())));
-			try {
-				HttpEntity entity = core.getMyHttpClient().doGet(url, params, false, null);
-				String text = EntityUtils.toString(entity, Consts.UTF_8); // 无消息
-				logger.info(text);
-				core.setAlive(false);
-				readyFlag = false;
-				//
-				result = true;
-			} catch (Exception e) {
-				logger.warn("退出登陆失败", e.getMessage());
+			if (!loginInfo.isEmpty()) {
+				String url = String.format(URLEnum.WEB_WX_LOGOUT.getUrl(), loginInfo.get(StorageLoginInfoEnum.url.getKey()));
+				List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
+				params.add(new BasicNameValuePair("redirect", "1"));
+				params.add(new BasicNameValuePair("type", "1"));
+				params.add(new BasicNameValuePair("skey", (String) loginInfo.get(StorageLoginInfoEnum.skey.getKey())));
+				try {
+					HttpEntity entity = core.getMyHttpClient().doGet(url, params, false, null);
+					String text = EntityUtils.toString(entity, Consts.UTF_8); // 无消息
+					logger.info(text);
+					//
+					result = true;
+				} catch (Exception e) {
+					logger.warn("退出登陆失败", e.getMessage());
+				}
 			}
+			//
+			core.setAlive(false);
+			readyFlag = false;
 			// 重置所有数据
 			core.reset();
 		} else {

@@ -83,12 +83,14 @@ public class Core implements Serializable, HttpStoreHolder {
 
 	@Override
 	public CookieStore getCookieStore() {
-		return this.dataStore.get("cookieStore");
+		CookieStore retVal = this.dataStore.get("cookieStore");
+		return retVal == null ? new BasicCookieStore() : retVal;
 	}
 
 	@Override
 	public String getUserAgentType() {
-		return this.dataStore.get("userAgentType");
+		String retVal = this.dataStore.get("userAgentType");
+		return retVal == null ? UserAgentType.Mac.name() : retVal;
 	}
 
 	// 切换浏览器的UserAgent
@@ -308,7 +310,7 @@ public class Core implements Serializable, HttpStoreHolder {
 
 	// 注意可能尚未设置
 	public Boolean isUseNewVersion() {
-		return this.dataStore.get("useNewVersion");
+		return Boolean.TRUE.equals(this.dataStore.get("useNewVersion"));
 	}
 
 	public void setUseNewVersion(boolean useNewVersion) {
@@ -334,7 +336,8 @@ public class Core implements Serializable, HttpStoreHolder {
 
 	/** 注意获取的loginInfo一旦变动，要及时调用setLoginInfo回写 */
 	public Map<String, Object> getLoginInfo() {
-		return dataStore.get("loginInfo");
+		Map<String, Object> retVal = dataStore.get("loginInfo");
+		return retVal == null ? new HashMap<String, Object>(0) : retVal;
 	}
 
 	public void setLoginInfo(Map<String, Object> loginInfo) {
@@ -404,7 +407,8 @@ public class Core implements Serializable, HttpStoreHolder {
 	}
 
 	public int getMemberCount() {
-		return dataStore.get("memberCount");
+		Integer retVal = dataStore.get("memberCount");
+		return retVal == null ? Integer.valueOf(0) : retVal;
 	}
 
 	public void setMemberCount(int memberCount) {
@@ -479,7 +483,8 @@ public class Core implements Serializable, HttpStoreHolder {
 
 	/** 好友+群聊+公众号+特殊账号 id列表 */
 	private List<String> getMemberIdList() {
-		return dataStore.get("memberIdList");
+		List<String> retVal = dataStore.get("memberIdList");
+		return retVal == null ? new ArrayList<String>(0) : retVal;
 	}
 
 	public boolean addMemberId(String userName) {
@@ -500,7 +505,8 @@ public class Core implements Serializable, HttpStoreHolder {
 
 	/** 好友id列表 */
 	private List<String> getContactIdList() {
-		return dataStore.get("contactIdList");
+		List<String> retVal = dataStore.get("contactIdList");
+		return retVal == null ? new ArrayList<String>(0) : retVal;
 	}
 
 	public boolean addContactId(String userName) {
@@ -543,7 +549,8 @@ public class Core implements Serializable, HttpStoreHolder {
 
 	/** 群聊id列表 注意一旦对数据进行了修改（要及时调用setGroupIdList进行同步） */
 	public List<String> getGroupIdList() {
-		return dataStore.get("groupIdList");
+		List<String> retVal = dataStore.get("groupIdList");
+		return retVal == null ? new ArrayList<String>(0) : retVal;
 	}
 
 	public boolean addGroupId(String userName) {
@@ -588,7 +595,8 @@ public class Core implements Serializable, HttpStoreHolder {
 
 	/** 公众号／服务号 id列表 */
 	private List<String> getPublicUserIdList() {
-		return dataStore.get("publicUserIdList");
+		List<String> retVal = dataStore.get("publicUserIdList");
+		return retVal == null ? new ArrayList<String>(0) : retVal;
 	}
 
 	public boolean addPublicUserId(String userName) {
@@ -618,7 +626,8 @@ public class Core implements Serializable, HttpStoreHolder {
 
 	/** 特殊账号 id列表 */
 	private List<String> getSpecialUserIdList() {
-		return dataStore.get("specialUserIdList");
+		List<String> retVal = dataStore.get("specialUserIdList");
+		return retVal == null ? new ArrayList<String>(0) : retVal;
 	}
 
 	public boolean addSpecialUserId(String userName) {
