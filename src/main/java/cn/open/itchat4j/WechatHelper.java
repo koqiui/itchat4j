@@ -1461,22 +1461,22 @@ public class WechatHelper {
 							message = RetCodeEnum.NOT_LOGIN_WARN.getMessage();
 							logger.warn(message);
 							core.setAlive(false);
-							core.setLastMessage(message);
 							readyFlag = false;
+							core.setLastMessage(message);
 							break;
 						} else if (retcode.equals(RetCodeEnum.LOGIN_OTHERWHERE.getCode())) { // 其它地方登陆
 							message = RetCodeEnum.LOGIN_OTHERWHERE.getMessage();
 							logger.warn(message);
 							core.setAlive(false);
-							core.setLastMessage(message);
 							readyFlag = false;
+							core.setLastMessage(message);
 							break;
 						} else if (retcode.equals(RetCodeEnum.INVALID_COOKIE.getCode())) { // 移动端退出
 							message = RetCodeEnum.INVALID_COOKIE.getMessage();
 							logger.warn(message);
 							core.setAlive(false);
-							core.setLastMessage(message);
 							readyFlag = false;
+							core.setLastMessage(message);
 							break;
 						} else if (retcode.equals(RetCodeEnum.SUCCESS.getCode())) {
 							JSONObject msgObj = pullSyncMsgs();
@@ -1525,8 +1525,8 @@ public class WechatHelper {
 						message = "异常：" + ex.getMessage();
 						logger.warn(message);
 						core.setAlive(false);
-						core.setLastMessage(message);
 						readyFlag = false;
+						core.setLastMessage(message);
 						break;
 					}
 				}
