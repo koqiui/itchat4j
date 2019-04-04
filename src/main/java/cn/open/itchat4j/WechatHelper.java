@@ -847,15 +847,12 @@ public class WechatHelper {
 				// 1_661706053|2_661706420|3_661706415|1000_1494151022
 				loginInfo.put(StorageLoginInfoEnum.synckey.getKey(), synckey.substring(0, synckey.length() - 1));// 1_656161336|2_656161626|3_656161313|11_656159955|13_656120033|201_1492273724|1000_1492265953|1001_1492250432|1004_1491805192
 				core.setLoginInfo(loginInfo);// 同步loginInfo
+				//
+				this.filterWxUser(userSelf);
+				//
 				String userName = userSelf.getString("UserName");
 				String nickName = userSelf.getString("NickName");
-				// 反转别名
-				nickName = nickName.replace("&amp;", "&");
-				nickName = CommonTools.parseEmoji(nickName);
-				userSelf.put("NickName", nickName);
-				// 处理头像
-				String headImgUrl = toFullHeadImgUrl(userSelf.getString("HeadImgUrl"));
-				userSelf.put("HeadImgUrl", headImgUrl);
+				String headImgUrl = userSelf.getString("HeadImgUrl");
 				//
 				core.setUserName(userName);
 				core.setNickName(nickName);
@@ -940,25 +937,55 @@ public class WechatHelper {
 		return URLEnum.WEB_WX_URL.getUrl() + srcUrl;
 	}
 
+	private void filterWxUser(JSONObject wxUser) {
+		// 拼接url
+		String headImgUrl = toFullHeadImgUrl(wxUser.getString("HeadImgUrl"));
+		wxUser.put("HeadImgUrl", headImgUrl);
+		// 反转emoji（并转&amp; => &）
+		String nickName = wxUser.getString("NickName");
+		if (nickName != null) {
+			nickName = nickName.replace("&amp;", "&");
+			nickName = CommonTools.parseEmoji(nickName);
+			wxUser.put("NickName", nickName);
+		}
+
+		String remarkName = wxUser.getString("RemarkName");
+		if (remarkName != null) {
+			remarkName = remarkName.replace("&amp;", "&");
+			remarkName = CommonTools.parseEmoji(remarkName);
+			wxUser.put("RemarkName", remarkName);
+		}
+
+		String dispName = wxUser.getString("DisplayName");
+		if (dispName != null) {
+			dispName = dispName.replace("&amp;", "&");
+			dispName = CommonTools.parseEmoji(dispName);
+			wxUser.put("DisplayName", dispName);
+		}
+
+		String signature = wxUser.getString("Signature");
+		if (signature != null) {
+			signature = signature.replace("&amp;", "&");
+			signature = CommonTools.parseEmoji(signature);
+			wxUser.put("Signature", signature);
+		}
+	}
+
 	private void addWxMember(JSONObject member) {
+		this.filterWxUser(member);
+		//
 		String userName = member.getString("UserName");
 		String nickName = member.getString("NickName");
-		// 反转别名（并转&amp; => &）
-		nickName = nickName.replace("&amp;", "&");
-		nickName = CommonTools.parseEmoji(nickName);
 		if (nickName.trim().equals("")) {
 			logger.warn("忽略 无 NickName 成员 " + userName);
 			return;
 		}
-		member.put("NickName", nickName);
-		String headImgUrl = toFullHeadImgUrl(member.getString("HeadImgUrl"));
-		member.put("HeadImgUrl", headImgUrl);
 		//
 		MsgUser msgUser = new MsgUser();
 		msgUser.userName = userName;
 		msgUser.nickName = nickName;
 		msgUser.remarkName = member.getString("RemarkName");
-		msgUser.headImgUrl = headImgUrl;
+		msgUser.headImgUrl = member.getString("HeadImgUrl");
 		msgUser.dispName = member.getString("DisplayName");
 		msgUser.signature = member.getString("Signature");
 		//
