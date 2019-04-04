@@ -156,6 +156,12 @@ public class Wechat {
 
 		};
 		// wechatHelper.setUseNewVersion(true);
+		// 启用/禁用 数据变更监视器
+		wechatHelper.setDataMonitorEnabled(true);
+		// 设置数据监视时间间隔（毫秒）
+		wechatHelper.setDataMonitorInterval(30 * 1000);
+		// 设置心跳/消息检测 时间间隔（毫秒）
+		wechatHelper.setHeatbeatInterval(2 * 1000);
 		// 1
 		wechatHelper.setNodeName("demoNode");
 		// 设置头像缓存目录

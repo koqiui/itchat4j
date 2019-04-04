@@ -143,34 +143,36 @@ public class WechatHelper {
 		}
 	}
 
-	public boolean isHandleRecvMsgs() {
-		return core.isHandleRecvMsgs();
-	}
-
+	/** 设置是否处理接收的消息（否则不会放入接收的消息队列里） */
 	public void setHandleRecvMsgs(boolean handleRecvMsgs) {
 		core.setHandleRecvMsgs(handleRecvMsgs);
 	}
 
+	/** 获取节点名称 */
 	public String getNodeName() {
 		return core.getNodeName();
 	}
 
 	// 1
+	/** 设置节点名称 */
 	public void setNodeName(String nodeName) {
 		core.setNodeName(nodeName);
 	}
 
 	// 2.x
+	/** 初始化 */
 	public void initCore() {
 		this.initCore(null, null);
 	}
 
 	// 2.y
+	/** 初始化 */
 	public void initCore(CoreStateListener stateListener) {
 		this.initCore(null, null);
 	}
 
 	// 2.z
+	/** 初始化 */
 	public void initCore(CoreDataStore dataStore, CoreStateListener stateListener) {
 		core.doInit(dataStore);
 		// core 负责触发多数事件
@@ -184,7 +186,7 @@ public class WechatHelper {
 	// cn.open.itchat4j.enums.params.UUIDParamEnum.APP_ID_NEW
 	private boolean useNewVersion = false;
 
-	// 注意：针对在线的节点有效（所以，所有节点都要使用同样的版本）
+	/** 设置是否使用新版微信， 注意：针对在线的节点有效（所以，所有节点都要使用同样的版本，但新版容易登陆失败） */
 	public void setUseNewVersion(boolean useNewVersion) {
 		if (useNewVersion != this.useNewVersion) {
 			this.useNewVersion = useNewVersion;
@@ -204,7 +206,7 @@ public class WechatHelper {
 	private volatile boolean isRunning = false;
 
 	// 3
-	/** 启动节点，启动后才能 */
+	/** 启动节点，启动后才能处理在线交互 */
 	public void startup() {
 		try {
 			isRunningLock.lock();
@@ -222,6 +224,7 @@ public class WechatHelper {
 	}
 
 	// last
+	/** 应用停止时执行（下线并停止各线程） */
 	public void shutdown() {
 		try {
 			isRunningLock.lock();
@@ -270,7 +273,7 @@ public class WechatHelper {
 	}
 
 	/**
-	 * 是否正在等着扫码登陆（如果是不要再调登陆了）
+	 * 是否正在等着扫码登陆（如果是不要再调用登陆）
 	 */
 
 	public boolean isWaitingForLoginScan() {
@@ -278,6 +281,7 @@ public class WechatHelper {
 	}
 
 	// 4.x
+	/** 登陆集成方法(web应用) */
 	public void doLogin() {
 		this.doLogin(null);
 	}
@@ -425,6 +429,7 @@ public class WechatHelper {
 	// 5 头像缓存目录
 	private String headImgCacheDir = null;
 
+	/** 设置头像缓存目录 */
 	public boolean setHeadImgCacheDir(String headImgCacheDir) {
 		boolean result = true;
 		if (headImgCacheDir != null) {
@@ -442,6 +447,7 @@ public class WechatHelper {
 	// 6 无头像的默认替代头像文件名（绝对路径 或 相对于头像缓存目录）
 	private File headImgFaultFile = null;
 
+	/** 设置无头像的默认替代头像文件名（绝对路径 或 相对于头像缓存目录，用于 离线获取不到头像 或 未设头像或的场景） */
 	public void setHeadImgFaultFileName(String headImgFaultFileName) {
 		if (headImgFaultFileName == null) {
 			headImgFaultFile = null;
@@ -649,7 +655,7 @@ public class WechatHelper {
 	private volatile boolean waitingForLoginScan = false;
 	private volatile boolean readyFlag = false;
 
-	// 是否已登陆并就绪
+	/** 是否已登陆并就绪（相关信息已获取到了） */
 	public boolean isReady() {
 		return this.readyFlag;
 	}
@@ -1385,6 +1391,14 @@ public class WechatHelper {
 	private Thread heatbeatThead = null;
 	private int heatbeatInterval = 1000;
 
+	/** 设置心跳/消息检测 时间间隔（毫秒） */
+	public void setHeatbeatInterval(int heatbeatInterval) {
+		if (heatbeatInterval < 1000) {
+			throw new IllegalArgumentException("心跳/消息检测 时间间隔不能小于 1 秒");
+		}
+		this.heatbeatInterval = heatbeatInterval;
+	}
+
 	private void stopHeatbeat() {
 		if (heatbeatThead != null && heatbeatThead.isAlive()) {
 			try {
@@ -1502,7 +1516,21 @@ public class WechatHelper {
 
 	//
 	private Thread dataMonitorThead = null;
-	private int dataMonitorInterval = 30000;
+	private volatile int dataMonitorInterval = 60 * 1000;
+	private volatile boolean dataMonitorEnabled = false;
+
+	/** 设置数据监视时间间隔（毫秒） */
+	public void setDataMonitorInterval(int dataMonitorInterval) {
+		if (dataMonitorInterval < 1000) {
+			throw new IllegalArgumentException("数据监视 时间间隔不能小于 1 秒");
+		}
+		this.dataMonitorInterval = dataMonitorInterval;
+	}
+
+	/** 启用/禁用 数据变更监视器 */
+	public void setDataMonitorEnabled(boolean dataMonitorEnabled) {
+		this.dataMonitorEnabled = dataMonitorEnabled;
+	}
 
 	private void stopDataMonitor() {
 		if (dataMonitorThead != null && dataMonitorThead.isAlive()) {
@@ -1516,12 +1544,16 @@ public class WechatHelper {
 	}
 
 	private void startDataMonitor() {
+		if (!dataMonitorEnabled) {
+			return;
+		}
+		//
 		this.stopDataMonitor();
 		//
 		dataMonitorThead = new Thread() {
 			public void run() {
 				String message = null;
-				while (isRunning) {
+				while (isRunning && dataMonitorEnabled) {
 					try {
 						Thread.sleep(dataMonitorInterval);
 						//
@@ -1556,6 +1588,7 @@ public class WechatHelper {
 		logger.info("数据监测已开启");
 	}
 
+	/** 退出（并清理所有相关数据） */
 	public boolean doLogout() {
 		boolean result = false;
 		//
